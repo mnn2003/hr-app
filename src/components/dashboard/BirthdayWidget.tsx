@@ -121,7 +121,7 @@ const BirthdayWidget = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <Cake className="h-6 w-6 text-birthday" />
-          Upcoming Birthdays
+          Employee Birthdays
         </CardTitle>
       </CardHeader>
       <CardContent>
