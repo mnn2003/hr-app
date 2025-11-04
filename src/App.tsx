@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster as HotToaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Login from "./pages/Login";
@@ -37,7 +37,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <HotToaster position="top-right" />
-        <HashRouter>
+        <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/admin-setup" element={<AdminSetup />} />
@@ -48,16 +48,16 @@ const App = () => (
             <Route path="/salary" element={<ProtectedRoute><Salary /></ProtectedRoute>} />
             <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/admin/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
-            <Route path="/admin/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
-            <Route path="/admin/leave-approvals" element={<ProtectedRoute><LeaveApprovals /></ProtectedRoute>} />
-            <Route path="/admin/attendance-management" element={<ProtectedRoute><AttendanceManagement /></ProtectedRoute>} />
-            <Route path="/admin/holidays" element={<ProtectedRoute><Holidays /></ProtectedRoute>} />
-            <Route path="/admin/salary-slips" element={<ProtectedRoute><SalarySlips /></ProtectedRoute>} />
-            <Route path="/" element={<Navigate to="/dashboard" />} />
+            <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
+            <Route path="/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
+            <Route path="/leave-approvals" element={<ProtectedRoute><LeaveApprovals /></ProtectedRoute>} />
+            <Route path="/attendance-management" element={<ProtectedRoute><AttendanceManagement /></ProtectedRoute>} />
+            <Route path="/holidays" element={<ProtectedRoute><Holidays /></ProtectedRoute>} />
+            <Route path="/salary-slips" element={<ProtectedRoute><SalarySlips /></ProtectedRoute>} />
+            <Route path="/" element={<Navigate to="/login" />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </HashRouter>
+        </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
