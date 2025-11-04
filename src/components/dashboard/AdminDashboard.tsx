@@ -1,22 +1,16 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Calendar, Clock, FileText } from 'lucide-react';
-import EmployeeManagement from './admin/EmployeeManagement';
-import LeaveApprovals from './admin/LeaveApprovals';
-import AttendanceManagement from './admin/AttendanceManagement';
-import HolidayManagement from './admin/HolidayManagement';
-import DepartmentManagement from './admin/DepartmentManagement';
-import SalarySlipManagement from './admin/SalarySlipManagement';
-import AttendanceTab from './employee/AttendanceTab';
-import LeaveTab from './employee/LeaveTab';
+import { Button } from '@/components/ui/button';
+import { Users, Calendar, Clock, FileText, CalendarCheck } from 'lucide-react';
 import BirthdayWidget from './BirthdayWidget';
 
 const AdminDashboard = () => {
   const { userRole, user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalEmployees: 0,
     pendingLeaves: 0,
@@ -123,14 +117,28 @@ const AdminDashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <button className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors">
-                    <div className="font-medium">Manage Employees</div>
-                    <div className="text-sm text-muted-foreground">Add, edit, or remove employees</div>
-                  </button>
-                  <button className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors">
-                    <div className="font-medium">Review Leave Requests</div>
-                    <div className="text-sm text-muted-foreground">Approve or reject pending leaves</div>
-                  </button>
+                  {userRole === 'hr' && (
+                    <Button 
+                      onClick={() => navigate('/employees')}
+                      variant="outline"
+                      className="w-full justify-start h-auto p-3"
+                    >
+                      <div className="text-left">
+                        <div className="font-medium">Manage Employees</div>
+                        <div className="text-sm text-muted-foreground">Add, edit, or remove employees</div>
+                      </div>
+                    </Button>
+                  )}
+                  <Button 
+                    onClick={() => navigate('/leave-approvals')}
+                    variant="outline"
+                    className="w-full justify-start h-auto p-3"
+                  >
+                    <div className="text-left">
+                      <div className="font-medium">Review Leave Requests</div>
+                      <div className="text-sm text-muted-foreground">Approve or reject pending leaves</div>
+                    </div>
+                  </Button>
                 </CardContent>
               </Card>
             )}
@@ -169,64 +177,6 @@ const AdminDashboard = () => {
             )}
           </div>
         )}
-      </div>
-
-      {/* Tabs for management sections */}
-      <div className="mt-6">
-        <Tabs defaultValue="my-attendance" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-8 h-auto overflow-x-auto">
-            <TabsTrigger value="my-attendance" className="text-xs md:text-sm">My Attendance</TabsTrigger>
-            <TabsTrigger value="my-leave" className="text-xs md:text-sm">My Leave</TabsTrigger>
-            {userRole === 'hr' && <TabsTrigger value="employees" className="text-xs md:text-sm">Employees</TabsTrigger>}
-            {userRole === 'hr' && <TabsTrigger value="departments" className="text-xs md:text-sm">Departments</TabsTrigger>}
-            <TabsTrigger value="leave-approvals" className="text-xs md:text-sm">Leave Approvals</TabsTrigger>
-            {userRole === 'hr' && <TabsTrigger value="attendance" className="text-xs md:text-sm">Attendance</TabsTrigger>}
-            {userRole === 'hr' && <TabsTrigger value="holidays" className="text-xs md:text-sm">Holidays</TabsTrigger>}
-            {userRole === 'hr' && <TabsTrigger value="salary-slips" className="text-xs md:text-sm">Salary Slips</TabsTrigger>}
-          </TabsList>
-
-          <TabsContent value="my-attendance" className="mt-4">
-            <AttendanceTab />
-          </TabsContent>
-
-          <TabsContent value="my-leave" className="mt-4">
-            <LeaveTab />
-          </TabsContent>
-
-          {userRole === 'hr' && (
-            <TabsContent value="employees" className="mt-4">
-              <EmployeeManagement />
-            </TabsContent>
-          )}
-
-          {userRole === 'hr' && (
-            <TabsContent value="departments" className="mt-4">
-              <DepartmentManagement />
-            </TabsContent>
-          )}
-
-          <TabsContent value="leave-approvals" className="mt-4">
-            <LeaveApprovals />
-          </TabsContent>
-
-          {userRole === 'hr' && (
-            <TabsContent value="attendance" className="mt-4">
-              <AttendanceManagement />
-            </TabsContent>
-          )}
-
-          {userRole === 'hr' && (
-            <TabsContent value="holidays" className="mt-4">
-              <HolidayManagement />
-            </TabsContent>
-          )}
-
-          {userRole === 'hr' && (
-            <TabsContent value="salary-slips" className="mt-4">
-              <SalarySlipManagement />
-            </TabsContent>
-          )}
-        </Tabs>
       </div>
     </div>
   );
