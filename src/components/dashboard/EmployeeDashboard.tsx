@@ -1,22 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, TrendingUp, Calendar, Phone, Mail } from 'lucide-react';
-import ProfileTab from './employee/ProfileTab';
-import AttendanceTab from './employee/AttendanceTab';
-import AttendanceReport from './employee/AttendanceReport';
-import LeaveTab from './employee/LeaveTab';
-import SalaryTab from './employee/SalaryTab';
+import { Users, TrendingUp, Calendar, Phone, Mail, DollarSign } from 'lucide-react';
 import BirthdayWidget from './BirthdayWidget';
 
 const EmployeeDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [widgetPreferences, setWidgetPreferences] = useState({
     birthdayWidget: true,
     todayAttendance: true,
@@ -315,19 +311,19 @@ const EmployeeDashboard = () => {
                   <CardTitle>Quick Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                  <Button className="h-auto py-3 md:py-4 flex-col gap-2">
+                  <Button onClick={() => navigate('/attendance')} className="h-auto py-3 md:py-4 flex-col gap-2">
                     <Calendar className="h-5 w-5 md:h-6 md:w-6" />
                     <span className="text-xs">Attendance</span>
                   </Button>
-                  <Button variant="outline" className="h-auto py-3 md:py-4 flex-col gap-2">
+                  <Button onClick={() => navigate('/leave')} variant="outline" className="h-auto py-3 md:py-4 flex-col gap-2">
                     <Calendar className="h-5 w-5 md:h-6 md:w-6" />
                     <span className="text-xs">Leave Request</span>
                   </Button>
-                  <Button variant="outline" className="h-auto py-3 md:py-4 flex-col gap-2">
-                    <TrendingUp className="h-5 w-5 md:h-6 md:w-6" />
+                  <Button onClick={() => navigate('/salary')} variant="outline" className="h-auto py-3 md:py-4 flex-col gap-2">
+                    <DollarSign className="h-5 w-5 md:h-6 md:w-6" />
                     <span className="text-xs">Salary</span>
                   </Button>
-                  <Button variant="outline" className="h-auto py-3 md:py-4 flex-col gap-2">
+                  <Button onClick={() => navigate('/profile')} variant="outline" className="h-auto py-3 md:py-4 flex-col gap-2">
                     <Users className="h-5 w-5 md:h-6 md:w-6" />
                     <span className="text-xs">Profile</span>
                   </Button>
@@ -336,35 +332,6 @@ const EmployeeDashboard = () => {
             )}
           </div>
         </div>
-      </div>
-
-      {/* Tabs for other sections */}
-      <div className="mt-6">
-        <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto">
-            <TabsTrigger value="profile" className="text-xs md:text-sm">Profile</TabsTrigger>
-            <TabsTrigger value="attendance" className="text-xs md:text-sm">Attendance</TabsTrigger>
-            <TabsTrigger value="report" className="text-xs md:text-sm">Report</TabsTrigger>
-            <TabsTrigger value="leave" className="text-xs md:text-sm">Leave</TabsTrigger>
-            <TabsTrigger value="salary" className="text-xs md:text-sm">Salary</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="profile" className="mt-4">
-            <ProfileTab />
-          </TabsContent>
-          <TabsContent value="attendance" className="mt-4">
-            <AttendanceTab onAttendanceUpdate={fetchTodayAttendance} />
-          </TabsContent>
-          <TabsContent value="report" className="mt-4">
-            <AttendanceReport />
-          </TabsContent>
-          <TabsContent value="leave" className="mt-4">
-            <LeaveTab />
-          </TabsContent>
-          <TabsContent value="salary" className="mt-4">
-            <SalaryTab />
-          </TabsContent>
-        </Tabs>
       </div>
     </div>
   );
