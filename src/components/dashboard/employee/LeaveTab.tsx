@@ -46,22 +46,50 @@ const LeaveTab = () => {
   const handleApplyLeave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Get employee details
+      const empQuery = query(collection(db, 'employees'), where('userId', '==', user!.uid));
+      const empSnapshot = await getDocs(empQuery);
+      const employeeData = empSnapshot.empty ? null : empSnapshot.docs[0].data();
+
+      // Get HR and HOD user IDs for approval routing
+      const hrQuery = query(collection(db, 'user_roles'), where('role', '==', 'hr'));
+      const hodQuery = query(collection(db, 'user_roles'), where('role', '==', 'hod'));
+      
+      const [hrSnapshot, hodSnapshot] = await Promise.all([
+        getDocs(hrQuery),
+        getDocs(hodQuery)
+      ]);
+
+      const approverIds = [
+        ...hrSnapshot.docs.map(doc => doc.data().userId),
+        ...hodSnapshot.docs.map(doc => doc.data().userId)
+      ];
+
+      if (approverIds.length === 0) {
+        toast.error('No HR or HOD found to approve leave');
+        return;
+      }
+
       await addDoc(collection(db, 'leaves'), {
         employeeId: user!.uid,
+        employeeName: employeeData?.name || user!.email,
+        employeeCode: employeeData?.employeeCode || '',
         leaveType,
         startDate,
         endDate,
         reason,
         status: 'pending',
+        approverIds,
         createdAt: new Date().toISOString()
       });
-      toast.success('Leave application submitted!');
+      toast.success('Leave application submitted to HR and HOD!');
       setLeaveType('');
       setStartDate('');
       setEndDate('');
       setReason('');
       fetchLeaves();
     } catch (error) {
+      console.error('Error applying leave:', error);
       toast.error('Failed to apply leave');
     }
   };
