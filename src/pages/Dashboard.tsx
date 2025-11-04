@@ -1,23 +1,15 @@
 import { useAuth } from '@/contexts/AuthContext';
 import EmployeeDashboard from '@/components/dashboard/EmployeeDashboard';
 import AdminDashboard from '@/components/dashboard/AdminDashboard';
-import DashboardSettings from '@/components/dashboard/DashboardSettings';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle, Menu } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
-import { useSearchParams } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const Dashboard = () => {
-  const { userRole, user, logout } = useAuth();
-  const [searchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'overview';
+  const { userRole, user } = useAuth();
   const isMobile = useIsMobile();
-
-  const handleLogout = async () => {
-    await logout();
-  };
 
   return (
     <SidebarProvider defaultOpen={!isMobile}>
@@ -67,8 +59,6 @@ const Dashboard = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ) : activeTab === 'settings' ? (
-                <DashboardSettings />
               ) : (
                 <>
                   {(userRole === 'staff' || userRole === 'intern') && <EmployeeDashboard />}
