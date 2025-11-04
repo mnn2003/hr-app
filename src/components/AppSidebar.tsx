@@ -84,10 +84,8 @@ export function AppSidebar() {
     }
   };
 
-  const handleNavigation = (tab: string) => {
-    const searchParams = new URLSearchParams();
-    searchParams.set('tab', tab);
-    navigate(`/dashboard?${searchParams.toString()}`, { replace: true });
+  const handleNavigation = (path: string) => {
+    navigate(path);
   };
 
   const handleLogout = async () => {
@@ -98,24 +96,24 @@ export function AppSidebar() {
   const isEmployee = userRole === 'staff' || userRole === 'intern';
 
   const employeeMenuItems = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard, visible: menuPreferences.overview },
-    { id: 'profile', label: 'Profile', icon: UserCog, visible: menuPreferences.profile },
-    { id: 'attendance', label: 'Attendance', icon: Clock, visible: menuPreferences.attendance },
-    { id: 'report', label: 'Report', icon: FileText, visible: menuPreferences.report },
-    { id: 'leave', label: 'Leave', icon: Calendar, visible: menuPreferences.leave },
-    { id: 'salary', label: 'Salary', icon: DollarSign, visible: menuPreferences.salary },
+    { id: '/dashboard', label: 'Overview', icon: LayoutDashboard, visible: menuPreferences.overview },
+    { id: '/profile', label: 'Profile', icon: UserCog, visible: menuPreferences.profile },
+    { id: '/attendance', label: 'Attendance', icon: Clock, visible: menuPreferences.attendance },
+    { id: '/report', label: 'Report', icon: FileText, visible: menuPreferences.report },
+    { id: '/leave', label: 'Leave', icon: Calendar, visible: menuPreferences.leave },
+    { id: '/salary', label: 'Salary', icon: DollarSign, visible: menuPreferences.salary },
   ];
 
   const adminMenuItems = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard, visible: menuPreferences.overview },
-    { id: 'my-attendance', label: 'My Attendance', icon: Clock, visible: menuPreferences.attendance },
-    { id: 'my-leave', label: 'My Leave', icon: Calendar, visible: menuPreferences.leave },
-    { id: 'employees', label: 'Employees', icon: Users, visible: menuPreferences.employees && userRole === 'hr' },
-    { id: 'departments', label: 'Departments', icon: Building2, visible: menuPreferences.departments && userRole === 'hr' },
-    { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck, visible: menuPreferences.leaveApprovals },
-    { id: 'attendance', label: 'Attendance Mgmt', icon: Clock, visible: menuPreferences.attendanceManagement && userRole === 'hr' },
-    { id: 'holidays', label: 'Holidays', icon: Calendar, visible: menuPreferences.holidays && userRole === 'hr' },
-    { id: 'salary-slips', label: 'Salary Slips', icon: DollarSign, visible: menuPreferences.salarySlips && userRole === 'hr' },
+    { id: '/dashboard', label: 'Overview', icon: LayoutDashboard, visible: menuPreferences.overview },
+    { id: '/attendance', label: 'My Attendance', icon: Clock, visible: menuPreferences.attendance },
+    { id: '/leave', label: 'My Leave', icon: Calendar, visible: menuPreferences.leave },
+    { id: '/employees', label: 'Employees', icon: Users, visible: menuPreferences.employees && userRole === 'hr' },
+    { id: '/departments', label: 'Departments', icon: Building2, visible: menuPreferences.departments && userRole === 'hr' },
+    { id: '/leave-approvals', label: 'Leave Approvals', icon: CalendarCheck, visible: menuPreferences.leaveApprovals },
+    { id: '/attendance-management', label: 'Attendance Mgmt', icon: Clock, visible: menuPreferences.attendanceManagement && userRole === 'hr' },
+    { id: '/holidays', label: 'Holidays', icon: Calendar, visible: menuPreferences.holidays && userRole === 'hr' },
+    { id: '/salary-slips', label: 'Salary Slips', icon: DollarSign, visible: menuPreferences.salarySlips && userRole === 'hr' },
   ];
 
   const menuItems = isEmployee ? employeeMenuItems : adminMenuItems;
@@ -150,7 +148,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
                     onClick={() => handleNavigation(item.id)}
-                    isActive={new URLSearchParams(location.search).get('tab') === item.id || (location.pathname === '/dashboard' && !new URLSearchParams(location.search).get('tab') && item.id === 'overview')}
+                    isActive={location.pathname === item.id}
                     tooltip={state === 'collapsed' ? item.label : undefined}
                   >
                     <item.icon className="h-4 w-4" />
@@ -170,8 +168,8 @@ export function AppSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => handleNavigation('settings')}
-                  isActive={new URLSearchParams(location.search).get('tab') === 'settings'}
+                  onClick={() => handleNavigation('/settings')}
+                  isActive={location.pathname === '/settings'}
                   tooltip={state === 'collapsed' ? 'Settings' : undefined}
                 >
                   <Settings className="h-4 w-4" />
