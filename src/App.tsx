@@ -1,66 +1,138 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React, { useEffect, Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster as HotToaster } from 'react-hot-toast';
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import AdminSetup from "./pages/AdminSetup";
-import NotFound from "./pages/NotFound";
-import Profile from "./pages/Profile";
-import Attendance from "./pages/Attendance";
-import Leave from "./pages/Leave";
-import Salary from "./pages/Salary";
-import Report from "./pages/Report";
-import Settings from "./pages/Settings";
-import Employees from "./pages/admin/Employees";
-import Departments from "./pages/admin/Departments";
-import LeaveApprovals from "./pages/admin/LeaveApprovals";
-import AttendanceManagement from "./pages/admin/AttendanceManagement";
-import Holidays from "./pages/admin/Holidays";
-import SalarySlips from "./pages/admin/SalarySlips";
+import MainLayout from './layouts/MainLayout';
+import { useAuthStore } from './store/authStore';
+import { usePlaylistStore } from './store/playlistStore';
+import { useThemeStore } from './store/themeStore';
+import LoadingSpinner from './components/LoadingSpinner';
+import ErrorBoundary from './components/ErrorBoundary';
+import Toaster from './components/Toaster';
 
-const queryClient = new QueryClient();
+const HomePage = lazy(() => import('./pages/HomePage'));
+const SearchPage = lazy(() => import('./pages/SearchPage'));
+const PlaylistPage = lazy(() => import('./pages/PlaylistPage'));
+const LibraryPage = lazy(() => import('./pages/LibraryPage'));
+const LikedSongsPage = lazy(() => import('./pages/LikedSongsPage'));
+const RecentlyPlayedPage = lazy(() => import('./pages/RecentlyPlayedPage'));
+const CategoryPage = lazy(() => import('./pages/CategoryPage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const ArtistPage = lazy(() => import('./pages/ArtistPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
-  if (loading) return <div>Loading...</div>;
-  return user ? <>{children}</> : <Navigate to="/login" />;
-};
+function App() {
+  const { checkAuth, isAuthenticated, isLoading: isAuthLoading } = useAuthStore();
+  const { fetchUserData, isLoading: isUserDataLoading } = usePlaylistStore();
+  const { theme } = useThemeStore();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <HotToaster position="top-right" />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/admin-setup" element={<AdminSetup />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
-            <Route path="/leave" element={<ProtectedRoute><Leave /></ProtectedRoute>} />
-            <Route path="/salary" element={<ProtectedRoute><Salary /></ProtectedRoute>} />
-            <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
-            <Route path="/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
-            <Route path="/leave-approvals" element={<ProtectedRoute><LeaveApprovals /></ProtectedRoute>} />
-            <Route path="/attendance-management" element={<ProtectedRoute><AttendanceManagement /></ProtectedRoute>} />
-            <Route path="/holidays" element={<ProtectedRoute><Holidays /></ProtectedRoute>} />
-            <Route path="/salary-slips" element={<ProtectedRoute><SalarySlips /></ProtectedRoute>} />
-            <Route path="/" element={<Navigate to="/login" />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchUserData();
+    }
+  }, [isAuthenticated, fetchUserData]);
+
+  useEffect(() => {
+    if (theme) {
+      document.documentElement.classList.remove('light', 'dark');
+      document.documentElement.classList.add(theme);
+    }
+  }, [theme]);
+
+  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+    if (isAuthLoading || isUserDataLoading) {
+      return <LoadingSpinner />;
+    }
+    return isAuthenticated ? children : <Navigate to="/login" replace />;
+  };
+
+  // If you're still having issues, try this alternative ProtectedRoute:
+  const ProtectedRouteAlt = ({ children }: { children: React.ReactNode }) => {
+    if (isAuthLoading || isUserDataLoading) {
+      return <LoadingSpinner />;
+    }
+    
+    if (!isAuthenticated) {
+      return <Navigate to="/login" replace />;
+    }
+    
+    return <>{children}</>;
+  };
+
+  return (
+    <HashRouter>
+      <ErrorBoundary>
+        <div className={theme}>
+          <Suspense fallback={<LoadingSpinner />}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+
+              <Route path="/" element={<MainLayout />}>
+                <Route index element={<HomePage />} />
+                <Route path="search" element={<SearchPage />} />
+                <Route path="artist/:id" element={<ArtistPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route
+                  path="library"
+                  element={
+                    <ProtectedRoute>
+                      <LibraryPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="playlist/:id"
+                  element={
+                    <ProtectedRoute>
+                      <PlaylistPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="liked-songs"
+                  element={
+                    <ProtectedRoute>
+                      <LikedSongsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="recently-played"
+                  element={
+                    <ProtectedRoute>
+                      <RecentlyPlayedPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="category/:id"
+                  element={
+                    <ProtectedRoute>
+                      <CategoryPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="profile"
+                  element={
+                    <ProtectedRoute>
+                      <ProfilePage />
+                    </ProtectedRoute>
+                  }
+                />
+              </Route>
+
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <Toaster />
+          </Suspense>
+        </div>
+      </ErrorBoundary>
+    </HashRouter>
+  );
+}
 
 export default App;
