@@ -12,8 +12,6 @@ import {
   UserCog,
   CalendarCheck,
   LogOut,
-  Menu,
-  X
 } from 'lucide-react';
 import {
   Sidebar,
@@ -43,6 +41,7 @@ interface MenuPreferences {
   employees: boolean;
   departments: boolean;
   leaveApprovals: boolean;
+  leaveManagement: boolean;
   attendanceManagement: boolean;
   holidays: boolean;
   salarySlips: boolean;
@@ -52,7 +51,12 @@ export function AppSidebar() {
   const { userRole, user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { state, toggleSidebar } = useSidebar();
+  const { state } = useSidebar();
+
+  // ✅ Normalize role (case-insensitive)
+  const normalizedRole = userRole ? userRole.toString().toLowerCase() : '';
+
+  // ✅ Default preferences
   const [menuPreferences, setMenuPreferences] = useState<MenuPreferences>({
     overview: true,
     profile: true,
@@ -63,6 +67,7 @@ export function AppSidebar() {
     employees: true,
     departments: true,
     leaveApprovals: true,
+    leaveManagement: true,
     attendanceManagement: true,
     holidays: true,
     salarySlips: true,
@@ -77,24 +82,28 @@ export function AppSidebar() {
     try {
       const prefsDoc = await getDoc(doc(db, 'user_preferences', user.uid));
       if (prefsDoc.exists() && prefsDoc.data().menuPreferences) {
-        setMenuPreferences(prefsDoc.data().menuPreferences);
+        // ✅ Merge Firestore prefs with defaults so missing fields don't hide items
+        setMenuPreferences(prev => ({
+          ...prev,
+          ...prefsDoc.data().menuPreferences,
+        }));
       }
     } catch (error) {
       console.error('Error loading menu preferences:', error);
     }
   };
 
-  const handleNavigation = (path: string) => {
-    navigate(path);
-  };
+  const handleNavigation = (path: string) => navigate(path);
 
   const handleLogout = async () => {
     await logout();
   };
 
-  const isHrOrHod = userRole === 'hr' || userRole === 'hod';
-  const isEmployee = userRole === 'staff' || userRole === 'intern';
+  // ✅ Role checks
+  const isHrOrHod = normalizedRole === 'hr' || normalizedRole === 'hod';
+  const isEmployee = normalizedRole === 'staff' || normalizedRole === 'intern';
 
+  // ✅ Employee Menu
   const employeeMenuItems = [
     { id: '/dashboard', label: 'Overview', icon: LayoutDashboard, visible: menuPreferences.overview },
     { id: '/profile', label: 'Profile', icon: UserCog, visible: menuPreferences.profile },
@@ -104,24 +113,32 @@ export function AppSidebar() {
     { id: '/salary', label: 'Salary', icon: DollarSign, visible: menuPreferences.salary },
   ];
 
+  // ✅ Admin / HR Menu
   const adminMenuItems = [
     { id: '/dashboard', label: 'Overview', icon: LayoutDashboard, visible: menuPreferences.overview },
     { id: '/attendance', label: 'My Attendance', icon: Clock, visible: menuPreferences.attendance },
     { id: '/leave', label: 'My Leave', icon: Calendar, visible: menuPreferences.leave },
-    { id: '/employees', label: 'Employees', icon: Users, visible: menuPreferences.employees && userRole === 'hr' },
-    { id: '/departments', label: 'Departments', icon: Building2, visible: menuPreferences.departments && userRole === 'hr' },
-    { id: '/leave-approvals', label: 'Leave Approvals', icon: CalendarCheck, visible: menuPreferences.leaveApprovals },
-    { id: '/attendance-management', label: 'Attendance Mgmt', icon: Clock, visible: menuPreferences.attendanceManagement && userRole === 'hr' },
-    { id: '/holidays', label: 'Holidays', icon: Calendar, visible: menuPreferences.holidays && userRole === 'hr' },
-    { id: '/salary-slips', label: 'Salary Slips', icon: DollarSign, visible: menuPreferences.salarySlips && userRole === 'hr' },
+    { id: '/employees', label: 'Employees', icon: Users, visible: Boolean(menuPreferences.employees) && normalizedRole === 'hr' },
+    { id: '/departments', label: 'Departments', icon: Building2, visible: Boolean(menuPreferences.departments) && normalizedRole === 'hr' },
+    { id: '/leave-approvals', label: 'Leave Approvals', icon: CalendarCheck, visible: Boolean(menuPreferences.leaveApprovals) },
+    { id: '/leave-management', label: 'Leave Management', icon: Calendar, visible: Boolean(menuPreferences.leaveManagement) && normalizedRole === 'hr' },
+    { id: '/attendance-management', label: 'Attendance Mgmt', icon: Clock, visible: Boolean(menuPreferences.attendanceManagement) && normalizedRole === 'hr' },
+    { id: '/holidays', label: 'Holidays', icon: Calendar, visible: Boolean(menuPreferences.holidays) && normalizedRole === 'hr' },
+    { id: '/salary-slips', label: 'Salary Slips', icon: DollarSign, visible: Boolean(menuPreferences.salarySlips) && normalizedRole === 'hr' },
   ];
 
   const menuItems = isEmployee ? employeeMenuItems : adminMenuItems;
   const visibleMenuItems = menuItems.filter(item => item.visible);
 
+  // Debug (optional)
+  console.log('User Role:', userRole);
+  console.log('Normalized Role:', normalizedRole);
+  console.log('Menu Preferences:', menuPreferences);
+
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarContent>
+        {/* Header */}
         <div className="px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -140,6 +157,7 @@ export function AppSidebar() {
 
         <Separator />
 
+        {/* Menu Items */}
         <SidebarGroup>
           {state !== 'collapsed' && <SidebarGroupLabel>Menu</SidebarGroupLabel>}
           <SidebarGroupContent>
@@ -162,6 +180,7 @@ export function AppSidebar() {
 
         <Separator />
 
+        {/* Account Section */}
         <SidebarGroup>
           {state !== 'collapsed' && <SidebarGroupLabel>Account</SidebarGroupLabel>}
           <SidebarGroupContent>
@@ -181,6 +200,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
+      {/* Footer (Logout) */}
       <SidebarFooter className="p-4">
         <Button
           onClick={handleLogout}
