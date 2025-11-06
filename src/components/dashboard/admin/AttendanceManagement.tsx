@@ -105,9 +105,9 @@ const AttendanceManagement = () => {
   const fetchEditRequests = async () => {
     if (!user) return;
     try {
+      // HR can see all pending attendance edit requests
       const q = query(
         collection(db, 'attendance_edit_requests'),
-        where('approverIds', 'array-contains', user.uid),
         where('status', '==', 'pending'),
         orderBy('createdAt', 'desc')
       );
