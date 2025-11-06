@@ -1,17 +1,38 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, updateDoc, doc, getDoc, orderBy } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
-import { useAuth } from '@/contexts/AuthContext';
+import { collection, getDocs, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'react-hot-toast';
-import { Check, X, User, Edit } from 'lucide-react';
-import { LeaveRequest, LeaveType, LeaveBalance } from '@/types/leave';
+import { User, Edit, Plus } from 'lucide-react';
+import { LeaveBalance, LeaveType } from '@/types/leave';
+
+interface EmployeeWithBalance {
+  id: string;
+  name: string;
+  employeeCode: string;
+  department: string;
+  balance: LeaveBalance;
+}
+
+const DEFAULT_LEAVE_BALANCE: Omit<LeaveBalance, 'employeeId' | 'lastUpdated'> = {
+  PL: 30,
+  CL: 2,
+  SL: 7,
+  WFH: 15,
+  MATERNITY: 182,
+  PATERNITY: 14,
+  ADOPTION: 84,
+  SABBATICAL: 0,
+  BEREAVEMENT: 10,
+  PARENTAL: 10,
+  COMP_OFF: 0,
+};
 
 const LEAVE_TYPE_NAMES: Record<LeaveType, string> = {
   PL: 'Privilege Leave',
@@ -29,393 +50,296 @@ const LEAVE_TYPE_NAMES: Record<LeaveType, string> = {
   VACATION: 'Vacation',
 };
 
-const LeaveApprovals = () => {
-  const { userRole } = useAuth();
-  const [pendingLeaves, setPendingLeaves] = useState<LeaveRequest[]>([]);
-  const [allLeaves, setAllLeaves] = useState<LeaveRequest[]>([]);
+const LeaveManagement = () => {
+  const [employees, setEmployees] = useState<EmployeeWithBalance[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
-  const [editingLeave, setEditingLeave] = useState<LeaveRequest | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeWithBalance | null>(null);
+  const [editBalance, setEditBalance] = useState<LeaveBalance | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
-    fetchPendingLeaves();
-    fetchAllLeaves();
-  }, [userRole]);
+    fetchEmployeesWithBalances();
+  }, []);
 
-  const fetchPendingLeaves = async () => {
+  const fetchEmployeesWithBalances = async () => {
     try {
       setLoading(true);
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-
-      // HR can see all pending leaves, not just those assigned to them
-      const q = query(
-        collection(db, 'leaves'), 
-        where('status', '==', 'pending')
-      );
-      const snapshot = await getDocs(q);
+      const employeesSnapshot = await getDocs(collection(db, 'employees'));
       
-      const leavesWithEmployees = await Promise.all(
-        snapshot.docs.map(async (leaveDoc) => {
-          const leaveData = leaveDoc.data();
-          let employeeName = leaveData.employeeName || 'Unknown';
-          let employeeCode = leaveData.employeeCode || '';
+      const employeesData = await Promise.all(
+        employeesSnapshot.docs.map(async (employeeDoc) => {
+          const empData = employeeDoc.data();
           
-          // Fallback: try to fetch employee details if not present
-          if (employeeName === 'Unknown') {
-            try {
-              const employeeDoc = await getDoc(doc(db, 'employees', leaveData.employeeId));
-              if (employeeDoc.exists()) {
-                const empData = employeeDoc.data();
-                employeeName = empData.name || 'Unknown';
-                employeeCode = empData.employeeCode || '';
-              }
-            } catch (error) {
-              console.error('Error fetching employee:', error);
-            }
+          // Fetch leave balance
+          const balanceDoc = await getDoc(doc(db, 'leave_balances', employeeDoc.id));
+          let balance: LeaveBalance;
+          
+          if (balanceDoc.exists()) {
+            balance = balanceDoc.data() as LeaveBalance;
+          } else {
+            // Create default balance if doesn't exist
+            balance = {
+              employeeId: employeeDoc.id,
+              ...DEFAULT_LEAVE_BALANCE,
+              lastUpdated: new Date().toISOString(),
+            };
+            await setDoc(doc(db, 'leave_balances', employeeDoc.id), balance);
           }
           
           return {
-            id: leaveDoc.id,
-            ...leaveData,
-            employeeName,
-            employeeCode,
-          } as LeaveRequest;
+            id: employeeDoc.id,
+            name: empData.name || 'Unknown',
+            employeeCode: empData.employeeCode || '',
+            department: empData.department || '',
+            balance,
+          };
         })
       );
       
-      setPendingLeaves(leavesWithEmployees);
+      setEmployees(employeesData);
     } catch (error) {
-      console.error('Error fetching leaves:', error);
-      toast.error('Failed to fetch leave requests');
+      console.error('Error fetching employees:', error);
+      toast.error('Failed to fetch employees');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchAllLeaves = async () => {
+  const handleEditBalance = (employee: EmployeeWithBalance) => {
+    setSelectedEmployee(employee);
+    setEditBalance(employee.balance);
+    setIsDialogOpen(true);
+  };
+
+  const handleUpdateBalance = async () => {
+    if (!selectedEmployee || !editBalance) return;
+
     try {
-      // Fetch all leaves for history view
-      const q = query(collection(db, 'leaves'), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(q);
+      await updateDoc(doc(db, 'leave_balances', selectedEmployee.id), {
+        ...editBalance,
+        lastUpdated: new Date().toISOString(),
+      });
       
-      const leavesWithEmployees = await Promise.all(
-        snapshot.docs.map(async (leaveDoc) => {
-          const leaveData = leaveDoc.data();
-          let employeeName = leaveData.employeeName || 'Unknown';
-          let employeeCode = leaveData.employeeCode || '';
-          
-          if (employeeName === 'Unknown') {
-            try {
-              const employeeDoc = await getDoc(doc(db, 'employees', leaveData.employeeId));
-              if (employeeDoc.exists()) {
-                const empData = employeeDoc.data();
-                employeeName = empData.name || 'Unknown';
-                employeeCode = empData.employeeCode || '';
-              }
-            } catch (error) {
-              console.error('Error fetching employee:', error);
-            }
-          }
-          
-          return {
-            id: leaveDoc.id,
-            ...leaveData,
-            employeeName,
-            employeeCode,
-          } as LeaveRequest;
-        })
-      );
+      toast.success('Leave balance updated successfully');
+      setIsDialogOpen(false);
+      fetchEmployeesWithBalances();
+    } catch (error) {
+      console.error('Error updating balance:', error);
+      toast.error('Failed to update leave balance');
+    }
+  };
+
+  const handleBalanceChange = (leaveType: keyof Omit<LeaveBalance, 'employeeId' | 'lastUpdated'>, value: string) => {
+    if (!editBalance) return;
+    setEditBalance({
+      ...editBalance,
+      [leaveType]: parseFloat(value) || 0,
+    });
+  };
+
+  const handleAllocateLeaves = async (employeeId: string) => {
+    try {
+      const balanceDoc = await getDoc(doc(db, 'leave_balances', employeeId));
+      const currentBalance = balanceDoc.exists() ? balanceDoc.data() as LeaveBalance : null;
       
-      setAllLeaves(leavesWithEmployees);
+      const newBalance: LeaveBalance = {
+        employeeId,
+        PL: (currentBalance?.PL || 0) + 2.5, // Monthly accrual
+        CL: currentBalance?.CL || DEFAULT_LEAVE_BALANCE.CL,
+        SL: currentBalance?.SL || DEFAULT_LEAVE_BALANCE.SL,
+        WFH: currentBalance?.WFH || DEFAULT_LEAVE_BALANCE.WFH,
+        MATERNITY: currentBalance?.MATERNITY || DEFAULT_LEAVE_BALANCE.MATERNITY,
+        PATERNITY: currentBalance?.PATERNITY || DEFAULT_LEAVE_BALANCE.PATERNITY,
+        ADOPTION: currentBalance?.ADOPTION || DEFAULT_LEAVE_BALANCE.ADOPTION,
+        SABBATICAL: currentBalance?.SABBATICAL || DEFAULT_LEAVE_BALANCE.SABBATICAL,
+        BEREAVEMENT: currentBalance?.BEREAVEMENT || DEFAULT_LEAVE_BALANCE.BEREAVEMENT,
+        PARENTAL: currentBalance?.PARENTAL || DEFAULT_LEAVE_BALANCE.PARENTAL,
+        COMP_OFF: currentBalance?.COMP_OFF || 0,
+        lastUpdated: new Date().toISOString(),
+      };
+      
+      await setDoc(doc(db, 'leave_balances', employeeId), newBalance);
+      toast.success('Monthly leaves allocated successfully');
+      fetchEmployeesWithBalances();
     } catch (error) {
-      console.error('Error fetching all leaves:', error);
-    }
-  };
-
-  const handleApprove = async (leaveId: string, leave: LeaveRequest) => {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-
-      // Deduct from leave balance
-      const balanceDoc = await getDoc(doc(db, 'leave_balances', leave.employeeId));
-      if (balanceDoc.exists() && leave.leaveType !== 'LWP' && leave.leaveType !== 'VACATION') {
-        const balance = balanceDoc.data() as LeaveBalance;
-        const updatedBalance = {
-          ...balance,
-          [leave.leaveType]: Math.max(0, balance[leave.leaveType as keyof Omit<LeaveBalance, 'employeeId' | 'lastUpdated'>] - leave.duration),
-          lastUpdated: new Date().toISOString(),
-        };
-        await updateDoc(doc(db, 'leave_balances', leave.employeeId), updatedBalance);
-      }
-
-      await updateDoc(doc(db, 'leaves', leaveId), { 
-        status: 'APPROVED',
-        approvedBy: currentUser.uid,
-        approvedAt: new Date().toISOString()
-      });
-      toast.success('Leave approved and balance updated!');
-      fetchPendingLeaves();
-      fetchAllLeaves();
-    } catch (error) {
-      toast.error('Failed to approve leave');
-    }
-  };
-
-  const handleReject = async (leaveId: string) => {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-
-      await updateDoc(doc(db, 'leaves', leaveId), { 
-        status: 'REJECTED',
-        rejectedBy: currentUser.uid,
-        rejectedAt: new Date().toISOString()
-      });
-      toast.success('Leave rejected!');
-      fetchPendingLeaves();
-      fetchAllLeaves();
-    } catch (error) {
-      toast.error('Failed to reject leave');
-    }
-  };
-
-  const handleEditLeave = (leave: LeaveRequest) => {
-    setEditingLeave(leave);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleUpdateLeave = async () => {
-    if (!editingLeave || !editingLeave.id) return;
-
-    try {
-      await updateDoc(doc(db, 'leaves', editingLeave.id), {
-        leaveType: editingLeave.leaveType,
-        startDate: editingLeave.startDate,
-        endDate: editingLeave.endDate,
-        duration: editingLeave.duration,
-        reason: editingLeave.reason,
-        notes: editingLeave.notes,
-      });
-
-      toast.success('Leave updated successfully');
-      setIsEditDialogOpen(false);
-      fetchPendingLeaves();
-      fetchAllLeaves();
-    } catch (error) {
-      console.error('Error updating leave:', error);
-      toast.error('Failed to update leave');
+      console.error('Error allocating leaves:', error);
+      toast.error('Failed to allocate leaves');
     }
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 border-b">
-        <button
-          onClick={() => setActiveTab('pending')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === 'pending'
-              ? 'border-b-2 border-primary text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Pending Approvals ({pendingLeaves.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('all')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === 'all'
-              ? 'border-b-2 border-primary text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          All Leave History ({allLeaves.length})
-        </button>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Leave Balance Management</h2>
+        <Button onClick={() => {
+          employees.forEach(emp => handleAllocateLeaves(emp.id));
+        }}>
+          <Plus className="mr-2 h-4 w-4" />
+          Allocate Monthly Leaves (All)
+        </Button>
       </div>
 
-      {activeTab === 'pending' ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Pending Leave Approvals</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="text-center py-8 text-muted-foreground">Loading...</div>
-            ) : (
-              <div className="space-y-3">
-                {pendingLeaves.map(leave => (
-              <div key={leave.id} className="p-4 border rounded-lg space-y-3 hover:border-primary/50 transition-colors">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <p className="font-semibold">{leave.employeeName}</p>
-                      {leave.employeeCode && (
-                        <Badge variant="outline" className="text-xs">{leave.employeeCode}</Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{LEAVE_TYPE_NAMES[leave.leaveType]}</Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {leave.startDate} to {leave.endDate} ({leave.duration} days)
-                      </span>
-                    </div>
-                    <p className="text-sm bg-muted p-2 rounded">{leave.reason}</p>
-                  </div>
-                  <Badge variant="secondary" className="ml-4">Pending</Badge>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleEditLeave(leave)}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit
-                  </Button>
-                  <Button size="sm" onClick={() => handleApprove(leave.id!, leave)} className="flex-1">
-                    <Check className="mr-2 h-4 w-4" />
-                    Approve
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleReject(leave.id!)} className="flex-1">
-                    <X className="mr-2 h-4 w-4" />
-                    Reject
-                  </Button>
-                </div>
-              </div>
-            ))}
-                {pendingLeaves.length === 0 && (
-                  <div className="text-center py-12">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
-                      <Check className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <p className="text-muted-foreground">No pending leave requests</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>All Leave History</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {allLeaves.map(leave => (
-                <div key={leave.id} className="p-4 border rounded-lg space-y-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>Employee Leave Balances</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+          ) : (
+            <div className="space-y-4">
+              {employees.map(employee => (
+                <div key={employee.id} className="p-4 border rounded-lg space-y-3">
                   <div className="flex justify-between items-start">
                     <div className="space-y-2 flex-1">
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
-                        <p className="font-semibold">{leave.employeeName}</p>
-                        {leave.employeeCode && (
-                          <Badge variant="outline" className="text-xs">{leave.employeeCode}</Badge>
+                        <p className="font-semibold">{employee.name}</p>
+                        {employee.employeeCode && (
+                          <Badge variant="outline" className="text-xs">{employee.employeeCode}</Badge>
                         )}
+                        <Badge variant="secondary" className="text-xs">{employee.department}</Badge>
                       </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{LEAVE_TYPE_NAMES[leave.leaveType]}</Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {leave.startDate} to {leave.endDate} ({leave.duration} days)
-                      </span>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">PL:</span> 
+                          <span className="ml-1 font-medium">{employee.balance.PL}</span>
+                        </div>
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">CL:</span> 
+                          <span className="ml-1 font-medium">{employee.balance.CL}</span>
+                        </div>
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">SL:</span> 
+                          <span className="ml-1 font-medium">{employee.balance.SL}</span>
+                        </div>
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">WFH:</span> 
+                          <span className="ml-1 font-medium">{employee.balance.WFH}</span>
+                        </div>
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Comp Off:</span> 
+                          <span className="ml-1 font-medium">{employee.balance.COMP_OFF}</span>
+                        </div>
+                      </div>
                     </div>
-                      <p className="text-sm bg-muted p-2 rounded">{leave.reason}</p>
-                    </div>
-                  <div className="flex gap-2 ml-4">
-                    <Badge 
-                      variant={
-                        leave.status === 'APPROVED' ? 'default' :
-                        leave.status === 'REJECTED' ? 'destructive' : 'secondary'
-                      }
-                    >
-                      {leave.status}
-                    </Badge>
-                    {leave.status === 'PENDING' && (
-                      <Button size="sm" variant="outline" onClick={() => handleEditLeave(leave)}>
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
+                    <Button size="sm" variant="outline" onClick={() => handleEditBalance(employee)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
                   </div>
                 </div>
               ))}
-              {allLeaves.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground">No leave records found</p>
-                </div>
-              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Leave Request</DialogTitle>
+            <DialogTitle>Edit Leave Balance - {selectedEmployee?.name}</DialogTitle>
           </DialogHeader>
-          {editingLeave && (
+          {editBalance && (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Employee</Label>
-                <Input value={editingLeave.employeeName} disabled />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Leave Type</Label>
-                <Input value={LEAVE_TYPE_NAMES[editingLeave.leaveType]} disabled />
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Start Date</Label>
+                  <Label>Privilege Leave (PL)</Label>
                   <Input
-                    type="date"
-                    value={editingLeave.startDate}
-                    onChange={(e) => setEditingLeave({ ...editingLeave, startDate: e.target.value })}
+                    type="number"
+                    step="0.5"
+                    value={editBalance.PL}
+                    onChange={(e) => handleBalanceChange('PL', e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>End Date</Label>
+                  <Label>Casual Leave (CL)</Label>
                   <Input
-                    type="date"
-                    value={editingLeave.endDate}
-                    onChange={(e) => setEditingLeave({ ...editingLeave, endDate: e.target.value })}
+                    type="number"
+                    step="0.5"
+                    value={editBalance.CL}
+                    onChange={(e) => handleBalanceChange('CL', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Sick Leave (SL)</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    value={editBalance.SL}
+                    onChange={(e) => handleBalanceChange('SL', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Work From Home (WFH)</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    value={editBalance.WFH}
+                    onChange={(e) => handleBalanceChange('WFH', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Maternity Leave (Days)</Label>
+                  <Input
+                    type="number"
+                    value={editBalance.MATERNITY}
+                    onChange={(e) => handleBalanceChange('MATERNITY', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Paternity Leave (Days)</Label>
+                  <Input
+                    type="number"
+                    value={editBalance.PATERNITY}
+                    onChange={(e) => handleBalanceChange('PATERNITY', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Adoption Leave (Days)</Label>
+                  <Input
+                    type="number"
+                    value={editBalance.ADOPTION}
+                    onChange={(e) => handleBalanceChange('ADOPTION', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bereavement Leave (Days)</Label>
+                  <Input
+                    type="number"
+                    value={editBalance.BEREAVEMENT}
+                    onChange={(e) => handleBalanceChange('BEREAVEMENT', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Parental Leave (Days)</Label>
+                  <Input
+                    type="number"
+                    value={editBalance.PARENTAL}
+                    onChange={(e) => handleBalanceChange('PARENTAL', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Compensatory Off</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    value={editBalance.COMP_OFF}
+                    onChange={(e) => handleBalanceChange('COMP_OFF', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Sabbatical (Months)</Label>
+                  <Input
+                    type="number"
+                    value={editBalance.SABBATICAL}
+                    onChange={(e) => handleBalanceChange('SABBATICAL', e.target.value)}
                   />
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label>Duration (Days)</Label>
-                <Input
-                  type="number"
-                  step="0.5"
-                  value={editingLeave.duration}
-                  onChange={(e) => setEditingLeave({ ...editingLeave, duration: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Reason</Label>
-                <Textarea
-                  value={editingLeave.reason}
-                  onChange={(e) => setEditingLeave({ ...editingLeave, reason: e.target.value })}
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Notes (HR)</Label>
-                <Textarea
-                  value={editingLeave.notes || ''}
-                  onChange={(e) => setEditingLeave({ ...editingLeave, notes: e.target.value })}
-                  placeholder="Add internal notes..."
-                  rows={2}
-                />
-              </div>
-
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleUpdateLeave}>Save Changes</Button>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleUpdateBalance}>Save Changes</Button>
               </div>
             </div>
           )}
@@ -425,4 +349,4 @@ const LeaveApprovals = () => {
   );
 };
 
-export default LeaveApprovals;
+export default LeaveManagement;
