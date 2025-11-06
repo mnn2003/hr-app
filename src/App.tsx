@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import Employees from "./pages/admin/Employees";
 import Departments from "./pages/admin/Departments";
 import LeaveApprovals from "./pages/admin/LeaveApprovals";
+import LeaveManagement from "./pages/admin/LeaveManagement";
 import AttendanceManagement from "./pages/admin/AttendanceManagement";
 import Holidays from "./pages/admin/Holidays";
 import SalarySlips from "./pages/admin/SalarySlips";
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
             <Route path="/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
             <Route path="/leave-approvals" element={<ProtectedRoute><LeaveApprovals /></ProtectedRoute>} />
+            <Route path="/leave-management" element={<ProtectedRoute><LeaveManagement /></ProtectedRoute>} />
             <Route path="/attendance-management" element={<ProtectedRoute><AttendanceManagement /></ProtectedRoute>} />
             <Route path="/holidays" element={<ProtectedRoute><Holidays /></ProtectedRoute>} />
             <Route path="/salary-slips" element={<ProtectedRoute><SalarySlips /></ProtectedRoute>} />
