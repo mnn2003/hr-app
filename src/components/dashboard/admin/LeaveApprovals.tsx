@@ -52,7 +52,7 @@ const LeaveApprovals = () => {
       // HR can see all pending leaves, not just those assigned to them
       const q = query(
         collection(db, 'leaves'), 
-        where('status', '==', 'pending')
+        where('status', '==', 'PENDING')
       );
       const snapshot = await getDocs(q);
       
