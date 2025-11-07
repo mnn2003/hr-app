@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, getDoc, setDoc, query, where, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'react-hot-toast';
-import { User, Edit, Plus } from 'lucide-react';
+import { User, Edit, Plus, AlertCircle } from 'lucide-react';
 import { LeaveBalance, LeaveType } from '@/types/leave';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface EmployeeWithBalance {
   id: string;
@@ -56,10 +57,32 @@ const LeaveManagement = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeWithBalance | null>(null);
   const [editBalance, setEditBalance] = useState<LeaveBalance | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [lastAllocation, setLastAllocation] = useState<string | null>(null);
+  const [canAllocate, setCanAllocate] = useState(true);
 
   useEffect(() => {
     fetchEmployeesWithBalances();
+    checkLastAllocation();
   }, []);
+
+  const checkLastAllocation = async () => {
+    try {
+      const allocationDoc = await getDoc(doc(db, 'system_settings', 'leave_allocation'));
+      if (allocationDoc.exists()) {
+        const lastDate = allocationDoc.data().lastAllocation;
+        setLastAllocation(lastDate);
+        
+        // Check if allocation was done this month
+        const lastAllocationDate = new Date(lastDate);
+        const now = new Date();
+        const isSameMonth = lastAllocationDate.getMonth() === now.getMonth() && 
+                           lastAllocationDate.getFullYear() === now.getFullYear();
+        setCanAllocate(!isSameMonth);
+      }
+    } catch (error) {
+      console.error('Error checking last allocation:', error);
+    }
+  };
 
   const fetchEmployeesWithBalances = async () => {
     try {
@@ -137,29 +160,49 @@ const LeaveManagement = () => {
     });
   };
 
-  const handleAllocateLeaves = async (employeeId: string) => {
+  const handleAllocateLeaves = async () => {
+    if (!canAllocate) {
+      toast.error('Monthly leaves have already been allocated this month');
+      return;
+    }
+
+    if (!confirm('Allocate monthly leaves to all employees? This can only be done once per month.')) {
+      return;
+    }
+
     try {
-      const balanceDoc = await getDoc(doc(db, 'leave_balances', employeeId));
-      const currentBalance = balanceDoc.exists() ? balanceDoc.data() as LeaveBalance : null;
-      
-      const newBalance: LeaveBalance = {
-        employeeId,
-        PL: (currentBalance?.PL || 0) + 2.5, // Monthly accrual
-        CL: currentBalance?.CL || DEFAULT_LEAVE_BALANCE.CL,
-        SL: currentBalance?.SL || DEFAULT_LEAVE_BALANCE.SL,
-        WFH: currentBalance?.WFH || DEFAULT_LEAVE_BALANCE.WFH,
-        MATERNITY: currentBalance?.MATERNITY || DEFAULT_LEAVE_BALANCE.MATERNITY,
-        PATERNITY: currentBalance?.PATERNITY || DEFAULT_LEAVE_BALANCE.PATERNITY,
-        ADOPTION: currentBalance?.ADOPTION || DEFAULT_LEAVE_BALANCE.ADOPTION,
-        SABBATICAL: currentBalance?.SABBATICAL || DEFAULT_LEAVE_BALANCE.SABBATICAL,
-        BEREAVEMENT: currentBalance?.BEREAVEMENT || DEFAULT_LEAVE_BALANCE.BEREAVEMENT,
-        PARENTAL: currentBalance?.PARENTAL || DEFAULT_LEAVE_BALANCE.PARENTAL,
-        COMP_OFF: currentBalance?.COMP_OFF || 0,
-        lastUpdated: new Date().toISOString(),
-      };
-      
-      await setDoc(doc(db, 'leave_balances', employeeId), newBalance);
-      toast.success('Monthly leaves allocated successfully');
+      await Promise.all(
+        employees.map(async (emp) => {
+          const balanceDoc = await getDoc(doc(db, 'leave_balances', emp.id));
+          const currentBalance = balanceDoc.exists() ? balanceDoc.data() as LeaveBalance : null;
+          
+          const newBalance: LeaveBalance = {
+            employeeId: emp.id,
+            PL: (currentBalance?.PL || 0) + 2.5, // Monthly accrual
+            CL: currentBalance?.CL || DEFAULT_LEAVE_BALANCE.CL,
+            SL: currentBalance?.SL || DEFAULT_LEAVE_BALANCE.SL,
+            WFH: currentBalance?.WFH || DEFAULT_LEAVE_BALANCE.WFH,
+            MATERNITY: currentBalance?.MATERNITY || DEFAULT_LEAVE_BALANCE.MATERNITY,
+            PATERNITY: currentBalance?.PATERNITY || DEFAULT_LEAVE_BALANCE.PATERNITY,
+            ADOPTION: currentBalance?.ADOPTION || DEFAULT_LEAVE_BALANCE.ADOPTION,
+            SABBATICAL: currentBalance?.SABBATICAL || DEFAULT_LEAVE_BALANCE.SABBATICAL,
+            BEREAVEMENT: currentBalance?.BEREAVEMENT || DEFAULT_LEAVE_BALANCE.BEREAVEMENT,
+            PARENTAL: currentBalance?.PARENTAL || DEFAULT_LEAVE_BALANCE.PARENTAL,
+            COMP_OFF: currentBalance?.COMP_OFF || 0,
+            lastUpdated: new Date().toISOString(),
+          };
+          
+          await setDoc(doc(db, 'leave_balances', emp.id), newBalance);
+        })
+      );
+
+      // Update last allocation date
+      await setDoc(doc(db, 'system_settings', 'leave_allocation'), {
+        lastAllocation: new Date().toISOString()
+      });
+
+      toast.success('Monthly leaves allocated to all employees successfully');
+      checkLastAllocation();
       fetchEmployeesWithBalances();
     } catch (error) {
       console.error('Error allocating leaves:', error);
@@ -169,14 +212,24 @@ const LeaveManagement = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Leave Balance Management</h2>
-        <Button onClick={() => {
-          employees.forEach(emp => handleAllocateLeaves(emp.id));
-        }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Allocate Monthly Leaves (All)
-        </Button>
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Leave Balance Management</h2>
+          <Button onClick={handleAllocateLeaves} disabled={!canAllocate}>
+            <Plus className="mr-2 h-4 w-4" />
+            Allocate Monthly Leaves (All)
+          </Button>
+        </div>
+        
+        {!canAllocate && lastAllocation && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Monthly leaves were already allocated on {new Date(lastAllocation).toLocaleDateString()}. 
+              You can allocate again next month.
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
 
       <Card>
