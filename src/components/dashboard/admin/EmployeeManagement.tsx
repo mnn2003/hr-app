@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
+import { useState, useEffect, useRef } from 'react';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, deleteUser, updatePassword } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { db, auth, storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +11,10 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { toast } from 'react-hot-toast';
-import { UserPlus, Edit, Trash2, Search, Mail, Phone, MapPin, User, Briefcase, Shield, Lock, Ban, CheckCircle, KeyRound } from 'lucide-react';
+import { UserPlus, Edit, Trash2, Search, Mail, Phone, MapPin, User, Briefcase, Shield, Lock, Ban, CheckCircle, KeyRound, Upload, FileSpreadsheet, Image as ImageIcon } from 'lucide-react';
 import { UserRole } from '@/contexts/AuthContext';
+import * as XLSX from 'xlsx';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface Employee {
   id: string;
@@ -32,6 +35,7 @@ interface Employee {
   createdAt: string;
   isBlocked?: boolean;
   pan?: string;
+  profileImageUrl?: string;
 }
 
 interface Department {
@@ -48,6 +52,10 @@ const EmployeeManagement = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [profileImagePreview, setProfileImagePreview] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: '',
     employeeCode: '',
@@ -129,6 +137,33 @@ const EmployeeManagement = () => {
     }
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size must be less than 5MB');
+        return;
+      }
+      setProfileImage(file);
+      setProfileImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const uploadProfileImage = async (employeeId: string): Promise<string | null> => {
+    if (!profileImage) return null;
+    
+    try {
+      const storageRef = ref(storage, `profile_images/${employeeId}`);
+      await uploadBytes(storageRef, profileImage);
+      const downloadURL = await getDownloadURL(storageRef);
+      return downloadURL;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Failed to upload profile image');
+      return null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -146,8 +181,14 @@ const EmployeeManagement = () => {
     
     try {
       if (isEditMode && editingId) {
+        // Upload profile image if changed
+        let profileImageUrl = undefined;
+        if (profileImage) {
+          profileImageUrl = await uploadProfileImage(editingId);
+        }
+
         // Update employee document
-        await updateDoc(doc(db, 'employees', editingId), {
+        const updateData: any = {
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
@@ -159,7 +200,13 @@ const EmployeeManagement = () => {
           departmentId: formData.departmentId || null,
           salary: formData.salary ? Number(formData.salary) : null,
           experience: formData.experience ? Number(formData.experience) : null
-        });
+        };
+
+        if (profileImageUrl) {
+          updateData.profileImageUrl = profileImageUrl;
+        }
+
+        await updateDoc(doc(db, 'employees', editingId), updateData);
         
         // Get the userId from the employee document
         const employeeDoc = await getDoc(doc(db, 'employees', editingId));
@@ -177,6 +224,9 @@ const EmployeeManagement = () => {
         const password = formData.pan.toUpperCase();
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         
+        // Upload profile image
+        const profileImageUrl = await uploadProfileImage(userCredential.user.uid);
+
         await setDoc(doc(db, 'employees', userCredential.user.uid), {
           name: formData.name,
           employeeCode: formData.employeeCode,
@@ -192,7 +242,8 @@ const EmployeeManagement = () => {
           experience: formData.experience ? Number(formData.experience) : null,
           pan: formData.pan.toUpperCase(),
           userId: userCredential.user.uid,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          ...(profileImageUrl && { profileImageUrl })
         });
 
         await setDoc(doc(db, 'user_roles', userCredential.user.uid), {
@@ -206,6 +257,8 @@ const EmployeeManagement = () => {
       setIsDialogOpen(false);
       setIsEditMode(false);
       setEditingId(null);
+      setProfileImage(null);
+      setProfileImagePreview('');
       setFormData({ name: '', employeeCode: '', email: '', phone: '', address: '', role: 'staff', designation: '', dateOfBirth: '', dateOfJoining: '', departmentId: '', salary: '', experience: '', pan: '' });
       fetchEmployees();
     } catch (error: any) {
@@ -229,6 +282,7 @@ const EmployeeManagement = () => {
       experience: emp.experience?.toString() || '',
       pan: emp.pan || ''
     });
+    setProfileImagePreview(emp.profileImageUrl || '');
     setEditingId(emp.id);
     setIsEditMode(true);
     setIsDialogOpen(true);
@@ -236,9 +290,81 @@ const EmployeeManagement = () => {
 
   const handleAddNew = () => {
     setFormData({ name: '', employeeCode: '', email: '', phone: '', address: '', role: 'staff', designation: '', dateOfBirth: '', dateOfJoining: '', departmentId: '', salary: '', experience: '', pan: '' });
+    setProfileImage(null);
+    setProfileImagePreview('');
     setIsEditMode(false);
     setEditingId(null);
     setIsDialogOpen(true);
+  };
+
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      const batch = writeBatch(db);
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const row of jsonData as any[]) {
+        try {
+          const employeeCode = row.employeeCode || row.EmployeeCode;
+          const pan = row.pan || row.PAN;
+          const email = `${employeeCode}@company.local`;
+          const password = pan.toUpperCase();
+
+          if (!employeeCode || !pan || pan.length !== 10) {
+            errorCount++;
+            continue;
+          }
+
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          
+          const employeeData = {
+            name: row.name || row.Name || '',
+            employeeCode,
+            email: row.email || row.Email || '',
+            phone: row.phone || row.Phone || '',
+            address: row.address || row.Address || '',
+            role: (row.role || row.Role || 'staff') as UserRole,
+            designation: row.designation || row.Designation || '',
+            dateOfBirth: row.dateOfBirth || row.DateOfBirth || '',
+            dateOfJoining: row.dateOfJoining || row.DateOfJoining || '',
+            departmentId: row.departmentId || row.DepartmentId || null,
+            salary: row.salary || row.Salary || null,
+            experience: row.experience || row.Experience || null,
+            pan: pan.toUpperCase(),
+            userId: userCredential.user.uid,
+            createdAt: new Date().toISOString()
+          };
+
+          await setDoc(doc(db, 'employees', userCredential.user.uid), employeeData);
+          await setDoc(doc(db, 'user_roles', userCredential.user.uid), {
+            userId: userCredential.user.uid,
+            role: employeeData.role
+          });
+
+          successCount++;
+        } catch (error) {
+          console.error('Error importing employee:', error);
+          errorCount++;
+        }
+      }
+
+      toast.success(`Import completed: ${successCount} successful, ${errorCount} failed`);
+      fetchEmployees();
+      if (excelInputRef.current) {
+        excelInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error reading Excel file:', error);
+      toast.error('Failed to read Excel file');
+    }
   };
 
   const handleDeleteEmployee = async (id: string) => {
@@ -294,7 +420,7 @@ const EmployeeManagement = () => {
       <CardHeader>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <CardTitle>Employee Management</CardTitle>
-          <div className="flex gap-2 w-full md:w-auto">
+          <div className="flex gap-2 w-full md:w-auto flex-wrap">
             <div className="relative flex-1 md:w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -304,6 +430,17 @@ const EmployeeManagement = () => {
                 className="pl-8"
               />
             </div>
+            <input
+              type="file"
+              ref={excelInputRef}
+              onChange={handleExcelImport}
+              accept=".xlsx,.xls"
+              className="hidden"
+            />
+            <Button variant="outline" onClick={() => excelInputRef.current?.click()}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Import Excel
+            </Button>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={handleAddNew}>
@@ -316,6 +453,32 @@ const EmployeeManagement = () => {
                   <DialogTitle>{isEditMode ? 'Edit Employee' : 'Add New Employee'}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Profile Image</Label>
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-20 w-20">
+                        <AvatarImage src={profileImagePreview} />
+                        <AvatarFallback>
+                          <ImageIcon className="h-8 w-8" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleImageChange}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                        <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload Image
+                        </Button>
+                        <p className="text-xs text-muted-foreground mt-1">Max 5MB</p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="name">Name</Label>
                     <Input
@@ -503,10 +666,16 @@ const EmployeeManagement = () => {
             {filteredEmployees.map(emp => (
               <div key={emp.id} className="p-4 border rounded-lg space-y-3 hover:border-primary/50 transition-colors">
                 <div className="flex justify-between items-start">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <p className="font-semibold text-lg">{emp.name}</p>
+                  <div className="flex items-start gap-3 flex-1">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={emp.profileImageUrl} />
+                      <AvatarFallback>
+                        <User className="h-6 w-6" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-lg">{emp.name}</p>
                       <Badge variant="outline" className="text-xs">{emp.employeeCode}</Badge>
                       <Badge 
                         variant={emp.role === 'hr' || emp.role === 'hod' ? 'default' : 'secondary'}
@@ -546,6 +715,7 @@ const EmployeeManagement = () => {
                           {emp.address}
                         </p>
                       )}
+                    </div>
                     </div>
                   </div>
                   <div className="flex gap-2 flex-wrap">
