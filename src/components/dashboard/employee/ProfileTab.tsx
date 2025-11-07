@@ -17,7 +17,7 @@ const ProfileTab = () => {
     employeeCode: '',
     address: '',
     phone: '',
-    photoURL: ''
+    profileImageUrl: ''
   });
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -57,10 +57,10 @@ const ProfileTab = () => {
     try {
       const storageRef = ref(storage, `profile-photos/${user!.uid}`);
       await uploadBytes(storageRef, file);
-      const photoURL = await getDownloadURL(storageRef);
+      const profileImageUrl = await getDownloadURL(storageRef);
       
-      await updateDoc(doc(db, 'employees', user!.uid), { photoURL });
-      setProfile({ ...profile, photoURL });
+      await updateDoc(doc(db, 'employees', user!.uid), { profileImageUrl });
+      setProfile({ ...profile, profileImageUrl });
       toast.success('Profile photo updated successfully!');
     } catch (error) {
       console.error('Upload error:', error);
@@ -97,7 +97,7 @@ const ProfileTab = () => {
         <CardContent className="space-y-6 pt-6">
           <div className="flex flex-col md:flex-row items-center gap-6">
             <Avatar className="h-32 w-32 border-4 border-primary/20">
-              <AvatarImage src={profile.photoURL} />
+              <AvatarImage src={profile.profileImageUrl} />
               <AvatarFallback className="text-3xl bg-primary/10 text-primary">
                 {profile.name?.charAt(0) || 'E'}
               </AvatarFallback>
