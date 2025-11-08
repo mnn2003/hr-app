@@ -47,7 +47,7 @@ const AdminDashboard = () => {
       const totalEmployees = employeesSnap.size;
 
       // Pending leaves
-      const leavesQuery = query(collection(db, 'leaves'), where('status', '==', 'pending'));
+      const leavesQuery = query(collection(db, 'leaves'), where('status', '==', 'PENDING'));
       const leavesSnap = await getDocs(leavesQuery);
       const pendingLeaves = leavesSnap.size;
 
