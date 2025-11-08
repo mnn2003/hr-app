@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'react-hot-toast';
-import { User, Lock, Upload } from 'lucide-react';
+import { User, Lock, Upload, MapPin, GraduationCap, Briefcase, Users, FileText, Heart } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 
 const ProfileTab = () => {
   const { user, changePassword } = useAuth();
@@ -17,7 +18,32 @@ const ProfileTab = () => {
     employeeCode: '',
     address: '',
     phone: '',
-    profileImageUrl: ''
+    profileImageUrl: '',
+    // Contact Details
+    currentAddress: '',
+    nativeAddress: '',
+    email: '',
+    mobile: '',
+    // Personal Details
+    akaName: '',
+    placeOfBirth: '',
+    nationality: '',
+    nameAsPerBankPassbook: '',
+    nameAsPerPAN: '',
+    nameAsPerAadhar: '',
+    bloodGroup: '',
+    height: '',
+    weight: '',
+    // Qualification
+    qualification: '',
+    // Previous Experience
+    previousExperience: '',
+    // Family Details
+    familyDetails: '',
+    // Documents
+    drivingLicense: '',
+    passport: '',
+    visa: ''
   });
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -121,6 +147,7 @@ const ProfileTab = () => {
               </div>
             </div>
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">Full Name</label>
@@ -138,25 +165,270 @@ const ProfileTab = () => {
                 className="bg-muted/30"
               />
             </div>
+          </div>
+          
+          <Button onClick={handleUpdateProfile} size="lg" className="w-full md:w-auto">
+            Update Profile
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Contact Details */}
+      <Card className="shadow-lg border-primary/20">
+        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10">
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <MapPin className="h-6 w-6 text-primary" />
+            Contact Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
+              <label className="text-sm font-medium text-muted-foreground">Email</label>
               <Input
-                value={profile.phone}
-                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                type="email"
+                value={profile.email}
+                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                 className="bg-muted/50"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Address</label>
+              <label className="text-sm font-medium text-muted-foreground">Mobile Number</label>
               <Input
-                value={profile.address}
-                onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                value={profile.mobile}
+                onChange={(e) => setProfile({ ...profile, mobile: e.target.value })}
+                className="bg-muted/50"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-muted-foreground">Current Address</label>
+            <Textarea
+              value={profile.currentAddress}
+              onChange={(e) => setProfile({ ...profile, currentAddress: e.target.value })}
+              className="bg-muted/50"
+              rows={3}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-muted-foreground">Native Address</label>
+            <Textarea
+              value={profile.nativeAddress}
+              onChange={(e) => setProfile({ ...profile, nativeAddress: e.target.value })}
+              className="bg-muted/50"
+              rows={3}
+            />
+          </div>
+          <Button onClick={handleUpdateProfile} size="lg" className="w-full md:w-auto">
+            Update Contact Details
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Personal Details */}
+      <Card className="shadow-lg border-primary/20">
+        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10">
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <Heart className="h-6 w-6 text-primary" />
+            Personal Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">A.K.A. Name</label>
+              <Input
+                value={profile.akaName}
+                onChange={(e) => setProfile({ ...profile, akaName: e.target.value })}
+                className="bg-muted/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Place of Birth</label>
+              <Input
+                value={profile.placeOfBirth}
+                onChange={(e) => setProfile({ ...profile, placeOfBirth: e.target.value })}
+                className="bg-muted/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Nationality</label>
+              <Input
+                value={profile.nationality}
+                onChange={(e) => setProfile({ ...profile, nationality: e.target.value })}
+                className="bg-muted/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Name as per Bank Passbook</label>
+              <Input
+                value={profile.nameAsPerBankPassbook}
+                onChange={(e) => setProfile({ ...profile, nameAsPerBankPassbook: e.target.value })}
+                className="bg-muted/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Name as per PAN Card</label>
+              <Input
+                value={profile.nameAsPerPAN}
+                onChange={(e) => setProfile({ ...profile, nameAsPerPAN: e.target.value })}
+                className="bg-muted/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Name as per Aadhar Card</label>
+              <Input
+                value={profile.nameAsPerAadhar}
+                onChange={(e) => setProfile({ ...profile, nameAsPerAadhar: e.target.value })}
+                className="bg-muted/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Blood Group</label>
+              <Input
+                value={profile.bloodGroup}
+                onChange={(e) => setProfile({ ...profile, bloodGroup: e.target.value })}
+                className="bg-muted/50"
+                placeholder="e.g., A+ve"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Height (cm)</label>
+              <Input
+                type="number"
+                value={profile.height}
+                onChange={(e) => setProfile({ ...profile, height: e.target.value })}
+                className="bg-muted/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Weight (kg)</label>
+              <Input
+                type="number"
+                value={profile.weight}
+                onChange={(e) => setProfile({ ...profile, weight: e.target.value })}
                 className="bg-muted/50"
               />
             </div>
           </div>
           <Button onClick={handleUpdateProfile} size="lg" className="w-full md:w-auto">
-            Update Profile
+            Update Personal Details
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Qualification */}
+      <Card className="shadow-lg border-primary/20">
+        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10">
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <GraduationCap className="h-6 w-6 text-primary" />
+            Qualification
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-muted-foreground">Educational Qualification</label>
+            <Textarea
+              value={profile.qualification}
+              onChange={(e) => setProfile({ ...profile, qualification: e.target.value })}
+              className="bg-muted/50"
+              rows={4}
+              placeholder="List your educational qualifications..."
+            />
+          </div>
+          <Button onClick={handleUpdateProfile} size="lg" className="w-full md:w-auto">
+            Update Qualification
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Previous Experience */}
+      <Card className="shadow-lg border-primary/20">
+        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10">
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <Briefcase className="h-6 w-6 text-primary" />
+            Previous Experience
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-muted-foreground">Work Experience</label>
+            <Textarea
+              value={profile.previousExperience}
+              onChange={(e) => setProfile({ ...profile, previousExperience: e.target.value })}
+              className="bg-muted/50"
+              rows={4}
+              placeholder="List your previous work experience..."
+            />
+          </div>
+          <Button onClick={handleUpdateProfile} size="lg" className="w-full md:w-auto">
+            Update Experience
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Family Details */}
+      <Card className="shadow-lg border-primary/20">
+        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10">
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <Users className="h-6 w-6 text-primary" />
+            Family Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-muted-foreground">Family Information</label>
+            <Textarea
+              value={profile.familyDetails}
+              onChange={(e) => setProfile({ ...profile, familyDetails: e.target.value })}
+              className="bg-muted/50"
+              rows={4}
+              placeholder="Provide family details..."
+            />
+          </div>
+          <Button onClick={handleUpdateProfile} size="lg" className="w-full md:w-auto">
+            Update Family Details
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Documents */}
+      <Card className="shadow-lg border-primary/20">
+        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10">
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <FileText className="h-6 w-6 text-primary" />
+            Documents
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Driving License Number</label>
+              <Input
+                value={profile.drivingLicense}
+                onChange={(e) => setProfile({ ...profile, drivingLicense: e.target.value })}
+                className="bg-muted/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Passport Number</label>
+              <Input
+                value={profile.passport}
+                onChange={(e) => setProfile({ ...profile, passport: e.target.value })}
+                className="bg-muted/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">VISA Number</label>
+              <Input
+                value={profile.visa}
+                onChange={(e) => setProfile({ ...profile, visa: e.target.value })}
+                className="bg-muted/50"
+              />
+            </div>
+          </div>
+          <Button onClick={handleUpdateProfile} size="lg" className="w-full md:w-auto">
+            Update Documents
           </Button>
         </CardContent>
       </Card>
