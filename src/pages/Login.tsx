@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -7,20 +7,41 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'react-hot-toast';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import { updatePassword } from 'firebase/auth';
+import { updatePassword, sendPasswordResetEmail } from 'firebase/auth';
 
 const Login = () => {
   const [employeeCode, setEmployeeCode] = useState('');
   const [password, setPassword] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [systemSettings, setSystemSettings] = useState({
+    systemName: 'HR Management System',
+    logoUrl: ''
+  });
   const { login, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    loadSystemSettings();
+  }, []);
+
+  const loadSystemSettings = async () => {
+    try {
+      const settingsDoc = await getDoc(doc(db, 'system_settings', 'general'));
+      if (settingsDoc.exists()) {
+        setSystemSettings(settingsDoc.data() as any);
+      }
+    } catch (error) {
+      console.error('Error loading system settings:', error);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const email = `${employeeCode}@company.local`;
       
-      // Login first
+      // Login with Firebase Auth
       await login(email, password);
       
       // Get current user
@@ -38,15 +59,6 @@ const Login = () => {
         return;
       }
       
-      // Check if password reset is pending
-      const resetDoc = await getDoc(doc(db, 'password_resets', currentUser.uid));
-      if (resetDoc.exists()) {
-        // Reset password to employee code
-        await updatePassword(currentUser, employeeCode);
-        await deleteDoc(doc(db, 'password_resets', currentUser.uid));
-        toast.success('Password has been reset to your employee code');
-      }
-      
       toast.success('Login successful!');
       navigate('/dashboard');
     } catch (error: any) {
@@ -55,38 +67,93 @@ const Login = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      toast.success('Password reset email sent! Check your inbox.');
+      setShowForgotPassword(false);
+      setResetEmail('');
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      toast.error('Failed to send reset email. Please check the email address.');
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl text-center">HR Management System</CardTitle>
+          <div className="flex flex-col items-center gap-4">
+            {systemSettings.logoUrl && (
+              <img 
+                src={systemSettings.logoUrl} 
+                alt="System Logo" 
+                className="w-20 h-20 object-contain"
+              />
+            )}
+            <CardTitle className="text-2xl text-center">{systemSettings.systemName}</CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Employee Code</label>
-              <Input
-                value={employeeCode}
-                onChange={(e) => setEmployeeCode(e.target.value)}
-                placeholder="e.g., W0115"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Password</label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full">
-              Login
-            </Button>
-          
-          </form>
+          {!showForgotPassword ? (
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Employee Code</label>
+                <Input
+                  value={employeeCode}
+                  onChange={(e) => setEmployeeCode(e.target.value)}
+                  placeholder="e.g., W0115"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Password</label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password"
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                Login
+              </Button>
+              <Button
+                type="button"
+                variant="link"
+                className="w-full text-sm"
+                onClick={() => setShowForgotPassword(true)}
+              >
+                Forgot Password?
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Email Address</label>
+                <Input
+                  type="email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                Send Reset Email
+              </Button>
+              <Button
+                type="button"
+                variant="link"
+                className="w-full text-sm"
+                onClick={() => setShowForgotPassword(false)}
+              >
+                Back to Login
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>
