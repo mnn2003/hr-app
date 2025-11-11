@@ -56,6 +56,12 @@ export function AppSidebar() {
   // ✅ Normalize role (case-insensitive)
   const normalizedRole = userRole ? userRole.toString().toLowerCase() : '';
 
+  // ✅ System settings
+  const [systemSettings, setSystemSettings] = useState({
+    systemName: 'HR System',
+    logoUrl: ''
+  });
+
   // ✅ Default preferences
   const [menuPreferences, setMenuPreferences] = useState<MenuPreferences>({
     overview: true,
@@ -75,6 +81,7 @@ export function AppSidebar() {
 
   useEffect(() => {
     loadMenuPreferences();
+    loadSystemSettings();
   }, [user]);
 
   const loadMenuPreferences = async () => {
@@ -90,6 +97,17 @@ export function AppSidebar() {
       }
     } catch (error) {
       console.error('Error loading menu preferences:', error);
+    }
+  };
+
+  const loadSystemSettings = async () => {
+    try {
+      const settingsDoc = await getDoc(doc(db, 'system_settings', 'general'));
+      if (settingsDoc.exists()) {
+        setSystemSettings(settingsDoc.data() as any);
+      }
+    } catch (error) {
+      console.error('Error loading system settings:', error);
     }
   };
 
@@ -142,12 +160,20 @@ export function AppSidebar() {
         <div className="px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-                HR
-              </div>
+              {systemSettings.logoUrl ? (
+                <img 
+                  src={systemSettings.logoUrl} 
+                  alt="Logo" 
+                  className="w-8 h-8 rounded-lg object-contain"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
+                  HR
+                </div>
+              )}
               {state !== 'collapsed' && (
                 <div>
-                  <h2 className="font-semibold text-sm">HR System</h2>
+                  <h2 className="font-semibold text-sm">{systemSettings.systemName}</h2>
                   <p className="text-xs text-muted-foreground capitalize">{userRole || 'User'}</p>
                 </div>
               )}
