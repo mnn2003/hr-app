@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc,
 import { createUserWithEmailAndPassword, deleteUser, updatePassword } from 'firebase/auth';
 import { db, auth, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { toast } from 'react-hot-toast';
-import { UserPlus, Edit, Trash2, Search, Mail, Phone, MapPin, User, Briefcase, Shield, Lock, Ban, CheckCircle, KeyRound, Upload, FileSpreadsheet, Image as ImageIcon, MoreVertical, X, GraduationCap, Users, FileText, Heart } from 'lucide-react';
+import { UserPlus, Edit, Trash2, Search, Mail, Phone, MapPin, User, Briefcase, Shield, Lock, Ban, CheckCircle, KeyRound, Upload, FileSpreadsheet, Image as ImageIcon, MoreVertical, X, GraduationCap, Users, FileText, Heart, Eye } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { UserRole } from '@/contexts/AuthContext';
 import * as XLSX from 'xlsx';
@@ -62,6 +63,10 @@ interface Employee {
   drivingLicense?: string;
   passport?: string;
   visa?: string;
+  // Document URLs
+  panCardUrl?: string;
+  aadharCardUrl?: string;
+  qualificationDocUrl?: string;
 }
 
 interface Department {
@@ -70,6 +75,7 @@ interface Department {
 }
 
 const EmployeeManagement = () => {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -80,8 +86,14 @@ const EmployeeManagement = () => {
   const [loading, setLoading] = useState(true);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profileImagePreview, setProfileImagePreview] = useState<string>('');
+  const [panCardFile, setPanCardFile] = useState<File | null>(null);
+  const [aadharCardFile, setAadharCardFile] = useState<File | null>(null);
+  const [qualificationDocFile, setQualificationDocFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
+  const panCardInputRef = useRef<HTMLInputElement>(null);
+  const aadharCardInputRef = useRef<HTMLInputElement>(null);
+  const qualificationDocInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: '',
     employeeCode: '',
@@ -214,6 +226,21 @@ const EmployeeManagement = () => {
     }
   };
 
+  const uploadDocument = async (file: File, employeeId: string, docType: string): Promise<string | null> => {
+    if (!file) return null;
+    
+    try {
+      const storageRef = ref(storage, `employee_documents/${employeeId}/${docType}_${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+      return downloadURL;
+    } catch (error) {
+      console.error(`Error uploading ${docType}:`, error);
+      toast.error(`Failed to upload ${docType}`);
+      return null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -231,10 +258,23 @@ const EmployeeManagement = () => {
     
     try {
       if (isEditMode && editingId) {
-        // Upload profile image if changed
+        // Upload files if changed
         let profileImageUrl = undefined;
+        let panCardUrl = undefined;
+        let aadharCardUrl = undefined;
+        let qualificationDocUrl = undefined;
+        
         if (profileImage) {
           profileImageUrl = await uploadProfileImage(editingId);
+        }
+        if (panCardFile) {
+          panCardUrl = await uploadDocument(panCardFile, editingId, 'pan_card');
+        }
+        if (aadharCardFile) {
+          aadharCardUrl = await uploadDocument(aadharCardFile, editingId, 'aadhar_card');
+        }
+        if (qualificationDocFile) {
+          qualificationDocUrl = await uploadDocument(qualificationDocFile, editingId, 'qualification');
         }
 
         // Update employee document
@@ -279,6 +319,15 @@ const EmployeeManagement = () => {
         if (profileImageUrl) {
           updateData.profileImageUrl = profileImageUrl;
         }
+        if (panCardUrl) {
+          updateData.panCardUrl = panCardUrl;
+        }
+        if (aadharCardUrl) {
+          updateData.aadharCardUrl = aadharCardUrl;
+        }
+        if (qualificationDocUrl) {
+          updateData.qualificationDocUrl = qualificationDocUrl;
+        }
 
         await updateDoc(doc(db, 'employees', editingId), updateData);
         
@@ -298,8 +347,11 @@ const EmployeeManagement = () => {
         const password = formData.pan.toUpperCase();
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         
-        // Upload profile image
+        // Upload all files
         const profileImageUrl = await uploadProfileImage(userCredential.user.uid);
+        const panCardUrl = panCardFile ? await uploadDocument(panCardFile, userCredential.user.uid, 'pan_card') : null;
+        const aadharCardUrl = aadharCardFile ? await uploadDocument(aadharCardFile, userCredential.user.uid, 'aadhar_card') : null;
+        const qualificationDocUrl = qualificationDocFile ? await uploadDocument(qualificationDocFile, userCredential.user.uid, 'qualification') : null;
 
         await setDoc(doc(db, 'employees', userCredential.user.uid), {
           name: formData.name,
@@ -318,6 +370,9 @@ const EmployeeManagement = () => {
           userId: userCredential.user.uid,
           createdAt: new Date().toISOString(),
           ...(profileImageUrl && { profileImageUrl }),
+          ...(panCardUrl && { panCardUrl }),
+          ...(aadharCardUrl && { aadharCardUrl }),
+          ...(qualificationDocUrl && { qualificationDocUrl }),
           // Contact Details
           currentAddress: formData.currentAddress,
           nativeAddress: formData.nativeAddress,
@@ -357,6 +412,9 @@ const EmployeeManagement = () => {
       setEditingId(null);
       setProfileImage(null);
       setProfileImagePreview('');
+      setPanCardFile(null);
+      setAadharCardFile(null);
+      setQualificationDocFile(null);
       setFormData({ 
         name: '', employeeCode: '', email: '', phone: '', address: '', role: 'staff', 
         designation: '', dateOfBirth: '', dateOfJoining: '', departmentId: '', salary: '', 
@@ -430,6 +488,9 @@ const EmployeeManagement = () => {
     });
     setProfileImage(null);
     setProfileImagePreview('');
+    setPanCardFile(null);
+    setAadharCardFile(null);
+    setQualificationDocFile(null);
     setIsEditMode(false);
     setEditingId(null);
     setIsDialogOpen(true);
@@ -1043,6 +1104,86 @@ const EmployeeManagement = () => {
                           />
                         </div>
                       </div>
+                      
+                      {/* Document Uploads */}
+                      <div className="space-y-4 mt-4">
+                        <h4 className="text-sm font-semibold">Upload Documents</h4>
+                        
+                        {/* PAN Card Upload */}
+                        <div className="space-y-2">
+                          <Label>PAN Card</Label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              ref={panCardInputRef}
+                              onChange={(e) => setPanCardFile(e.target.files?.[0] || null)}
+                              accept="image/*,application/pdf"
+                              className="hidden"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => panCardInputRef.current?.click()}
+                              className="flex-1"
+                              size="sm"
+                            >
+                              <Upload className="mr-2 h-4 w-4" />
+                              {panCardFile ? panCardFile.name : 'Choose File'}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">PDF or Image (Max 10MB)</p>
+                        </div>
+
+                        {/* Aadhar Card Upload */}
+                        <div className="space-y-2">
+                          <Label>Aadhar Card</Label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              ref={aadharCardInputRef}
+                              onChange={(e) => setAadharCardFile(e.target.files?.[0] || null)}
+                              accept="image/*,application/pdf"
+                              className="hidden"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => aadharCardInputRef.current?.click()}
+                              className="flex-1"
+                              size="sm"
+                            >
+                              <Upload className="mr-2 h-4 w-4" />
+                              {aadharCardFile ? aadharCardFile.name : 'Choose File'}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">PDF or Image (Max 10MB)</p>
+                        </div>
+
+                        {/* Qualification Document Upload */}
+                        <div className="space-y-2">
+                          <Label>Qualification Certificate</Label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              ref={qualificationDocInputRef}
+                              onChange={(e) => setQualificationDocFile(e.target.files?.[0] || null)}
+                              accept="image/*,application/pdf"
+                              className="hidden"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => qualificationDocInputRef.current?.click()}
+                              className="flex-1"
+                              size="sm"
+                            >
+                              <Upload className="mr-2 h-4 w-4" />
+                              {qualificationDocFile ? qualificationDocFile.name : 'Choose File'}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">PDF or Image (Max 10MB)</p>
+                        </div>
+                      </div>
                     </div>
                     
                     <Button type="submit" className="w-full text-sm sm:text-base py-2.5">
@@ -1126,6 +1267,10 @@ const EmployeeManagement = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={() => navigate(`/employees/${emp.id}`)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(emp)}>
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
@@ -1155,6 +1300,9 @@ const EmployeeManagement = () => {
                   
                   {/* Desktop Button Group */}
                   <div className="hidden sm:flex gap-1 flex-shrink-0">
+                    <Button variant="outline" size="sm" onClick={() => navigate(`/employees/${emp.id}`)} title="View Details">
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => handleEdit(emp)} title="Edit">
                       <Edit className="h-4 w-4" />
                     </Button>
