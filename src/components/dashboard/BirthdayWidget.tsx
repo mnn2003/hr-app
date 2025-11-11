@@ -1,10 +1,21 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Cake } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Cake, Send } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 interface EmployeeBirthday {
   id: string;
@@ -16,8 +27,12 @@ interface EmployeeBirthday {
 }
 
 const BirthdayWidget = () => {
+  const { user } = useAuth();
   const [birthdays, setBirthdays] = useState<EmployeeBirthday[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wishMessage, setWishMessage] = useState('');
+  const [sendingWish, setSendingWish] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeBirthday | null>(null);
 
   useEffect(() => {
     fetchBirthdays();
@@ -112,6 +127,53 @@ const BirthdayWidget = () => {
     return `In ${daysUntil} days`;
   };
 
+  const sendBirthdayWish = async () => {
+    if (!user || !selectedEmployee || !wishMessage.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a birthday wish',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setSendingWish(true);
+    try {
+      // Get sender's name
+      const senderSnapshot = await getDocs(collection(db, 'employees'));
+      const senderDoc = senderSnapshot.docs.find(doc => doc.data().userId === user.uid);
+      const senderName = senderDoc?.data()?.name || user.email?.split('@')[0] || 'Someone';
+
+      await addDoc(collection(db, 'notifications'), {
+        title: '🎂 Birthday Wish',
+        message: `${senderName} says: ${wishMessage.trim()}`,
+        type: 'birthday',
+        createdAt: new Date().toISOString(),
+        readBy: [],
+        sentBy: user.uid,
+        sentByName: senderName,
+        recipientId: selectedEmployee.id
+      });
+
+      toast({
+        title: 'Success',
+        description: `Birthday wish sent to ${selectedEmployee.name}!`
+      });
+
+      setWishMessage('');
+      setSelectedEmployee(null);
+    } catch (error) {
+      console.error('Error sending birthday wish:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to send birthday wish',
+        variant: 'destructive'
+      });
+    } finally {
+      setSendingWish(false);
+    }
+  };
+
   if (loading || birthdays.length === 0) {
     return null;
   }
@@ -121,7 +183,7 @@ const BirthdayWidget = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <Cake className="h-6 w-6 text-birthday" />
-          Employee Birthdays
+          Upcoming Birthdays
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -146,12 +208,48 @@ const BirthdayWidget = () => {
                   <p className="text-xs text-muted-foreground">{birthday.department}</p>
                 )}
               </div>
-              <Badge 
-                variant={birthday.isToday ? 'default' : 'outline'}
-                className={birthday.isToday ? 'bg-birthday text-white' : 'border-birthday text-birthday'}
-              >
-                {formatBirthdayText(birthday.daysUntil)}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge 
+                  variant={birthday.isToday ? 'default' : 'outline'}
+                  className={birthday.isToday ? 'bg-birthday text-white' : 'border-birthday text-birthday'}
+                >
+                  {formatBirthdayText(birthday.daysUntil)}
+                </Badge>
+                {birthday.isToday && (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="border-birthday text-birthday hover:bg-birthday hover:text-white"
+                        onClick={() => setSelectedEmployee(birthday)}
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Send Birthday Wish to {birthday.name}</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <Input
+                          placeholder="Type your birthday wish..."
+                          value={wishMessage}
+                          onChange={(e) => setWishMessage(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && sendBirthdayWish()}
+                        />
+                        <Button 
+                          onClick={sendBirthdayWish} 
+                          disabled={sendingWish}
+                          className="w-full"
+                        >
+                          {sendingWish ? 'Sending...' : 'Send Birthday Wish 🎉'}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
             </div>
           ))}
         </div>
