@@ -4,10 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
+import { Upload, Image as ImageIcon } from 'lucide-react';
+import NotificationManager from '@/components/notifications/NotificationManager';
 
 interface Preferences {
   menuPreferences: {
@@ -65,13 +69,22 @@ const DashboardSettings = () => {
     },
   });
   const [loading, setLoading] = useState(false);
+  const [systemSettings, setSystemSettings] = useState({
+    systemName: 'HR Management System',
+    logoUrl: ''
+  });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const isHrOrHod = userRole === 'hr' || userRole === 'hod';
   const isEmployee = userRole === 'staff' || userRole === 'intern';
 
   useEffect(() => {
     loadPreferences();
-  }, [user]);
+    if (userRole === 'hr') {
+      loadSystemSettings();
+    }
+  }, [user, userRole]);
 
   const loadPreferences = async () => {
     if (!user) return;
@@ -85,6 +98,17 @@ const DashboardSettings = () => {
       }
     } catch (error) {
       console.error('Error loading preferences:', error);
+    }
+  };
+
+  const loadSystemSettings = async () => {
+    try {
+      const settingsDoc = await getDoc(doc(db, 'system_settings', 'general'));
+      if (settingsDoc.exists()) {
+        setSystemSettings(settingsDoc.data() as any);
+      }
+    } catch (error) {
+      console.error('Error loading system settings:', error);
     }
   };
 
@@ -127,12 +151,114 @@ const DashboardSettings = () => {
     }));
   };
 
+  const handleLogoUpload = async () => {
+    if (!logoFile) {
+      toast.error('Please select a logo file');
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const logoRef = ref(storage, `system/logo-${Date.now()}`);
+      await uploadBytes(logoRef, logoFile);
+      const logoUrl = await getDownloadURL(logoRef);
+      
+      await setDoc(doc(db, 'system_settings', 'general'), {
+        ...systemSettings,
+        logoUrl,
+        updatedAt: new Date().toISOString()
+      });
+      
+      setSystemSettings(prev => ({ ...prev, logoUrl }));
+      setLogoFile(null);
+      toast.success('Logo uploaded successfully!');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      toast.error('Failed to upload logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const saveSystemSettings = async () => {
+    setLoading(true);
+    try {
+      await setDoc(doc(db, 'system_settings', 'general'), {
+        ...systemSettings,
+        updatedAt: new Date().toISOString()
+      });
+      toast.success('System settings saved successfully!');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      console.error('Error saving system settings:', error);
+      toast.error('Failed to save system settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl md:text-3xl font-bold">Dashboard Settings</h2>
         <p className="text-muted-foreground mt-1">Customize your dashboard experience</p>
       </div>
+
+      {userRole === 'hr' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>System Settings</CardTitle>
+            <CardDescription>Manage system logo and name</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="system-name">System Name</Label>
+              <Input
+                id="system-name"
+                value={systemSettings.systemName}
+                onChange={(e) => setSystemSettings(prev => ({ ...prev, systemName: e.target.value }))}
+                placeholder="Enter system name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>System Logo</Label>
+              {systemSettings.logoUrl && (
+                <div className="flex items-center gap-4 p-4 border rounded-lg bg-muted/50">
+                  <img 
+                    src={systemSettings.logoUrl} 
+                    alt="System Logo" 
+                    className="w-16 h-16 object-contain rounded"
+                  />
+                  <p className="text-sm text-muted-foreground">Current logo</p>
+                </div>
+              )}
+              
+              <div className="flex gap-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleLogoUpload}
+                  disabled={!logoFile || uploadingLogo}
+                  size="sm"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {uploadingLogo ? 'Uploading...' : 'Upload'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Upload a logo image (PNG, JPG, etc.)</p>
+            </div>
+
+            <Button onClick={saveSystemSettings} disabled={loading}>
+              {loading ? 'Saving...' : 'Save System Settings'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Menu Preferences */}
@@ -374,6 +500,10 @@ const DashboardSettings = () => {
           </CardContent>
         </Card>
       </div>
+
+      {userRole === 'hr' && (
+        <NotificationManager />
+      )}
 
       <div className="flex justify-end">
         <Button onClick={savePreferences} disabled={loading} size="lg">
