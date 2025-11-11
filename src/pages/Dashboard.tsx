@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import EmployeeDashboard from '@/components/dashboard/EmployeeDashboard';
 import AdminDashboard from '@/components/dashboard/AdminDashboard';
@@ -6,13 +7,37 @@ import { AlertCircle, Menu } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import NotificationBell from '@/components/notifications/NotificationBell';
+import LoginNotificationModal from '@/components/notifications/LoginNotificationModal';
 
 const Dashboard = () => {
   const { userRole, user } = useAuth();
   const isMobile = useIsMobile();
+  const [systemSettings, setSystemSettings] = useState({
+    systemName: 'HR System',
+    logoUrl: ''
+  });
+
+  useEffect(() => {
+    loadSystemSettings();
+  }, []);
+
+  const loadSystemSettings = async () => {
+    try {
+      const settingsDoc = await getDoc(doc(db, 'system_settings', 'general'));
+      if (settingsDoc.exists()) {
+        setSystemSettings(settingsDoc.data() as any);
+      }
+    } catch (error) {
+      console.error('Error loading system settings:', error);
+    }
+  };
 
   return (
     <SidebarProvider defaultOpen={!isMobile}>
+      <LoginNotificationModal />
       <div className="flex min-h-screen w-full bg-background">
         {userRole && <AppSidebar />}
         
@@ -25,17 +50,28 @@ const Dashboard = () => {
                   <Menu className="h-5 w-5" />
                 </SidebarTrigger>
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-                    HR
-                  </div>
+                  {systemSettings.logoUrl ? (
+                    <img 
+                      src={systemSettings.logoUrl} 
+                      alt="Logo" 
+                      className="w-8 h-8 rounded-lg object-contain"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
+                      HR
+                    </div>
+                  )}
                   <div className="hidden sm:block">
-                    <h1 className="text-sm font-semibold">HR Management</h1>
+                    <h1 className="text-sm font-semibold">{systemSettings.systemName}</h1>
                     <p className="text-xs text-muted-foreground capitalize">{userRole || 'User'}</p>
                   </div>
                 </div>
               </div>
               
-              <SidebarTrigger className="hidden lg:flex" />
+              <div className="flex items-center gap-2">
+                <NotificationBell />
+                <SidebarTrigger className="hidden lg:flex" />
+              </div>
             </div>
           </header>
 
