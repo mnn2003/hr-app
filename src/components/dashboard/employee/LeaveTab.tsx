@@ -17,8 +17,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'react-hot-toast';
-import { Calendar, Plus } from 'lucide-react';
+import { CalendarIcon, Plus, Info } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { LeaveType, LeaveRequest, LeaveBalance } from '@/types/leave';
 
 const LEAVE_TYPE_NAMES: Record<LeaveType, string> = {
@@ -49,12 +53,27 @@ const LeaveTab = () => {
   const [leaveBalance, setLeaveBalance] = useState<LeaveBalance | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [employeeGender, setEmployeeGender] = useState<'Male' | 'Female' | null>(null);
+  const [holidays, setHolidays] = useState<string[]>([]);
 
   useEffect(() => {
     fetchLeaves();
     fetchLeaveBalance();
     fetchEmployeeGender();
+    fetchHolidays();
   }, []);
+
+  const fetchHolidays = async () => {
+    try {
+      const holidaysSnapshot = await getDocs(collection(db, 'holidays'));
+      const holidayDates = holidaysSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return data.date; // Date in YYYY-MM-DD format
+      });
+      setHolidays(holidayDates);
+    } catch (error) {
+      console.error('Error fetching holidays:', error);
+    }
+  };
 
   const fetchEmployeeGender = async () => {
     try {
@@ -116,16 +135,77 @@ const LeaveTab = () => {
     const start = new Date(a + 'T00:00:00');
     const end = new Date(b + 'T00:00:00');
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+    
+    // Count working days (excluding Sundays and holidays)
+    let workingDays = 0;
+    const current = new Date(start);
+    
+    while (current <= end) {
+      // Create date string without timezone conversion
+      const year = current.getFullYear();
+      const month = String(current.getMonth() + 1).padStart(2, '0');
+      const day = String(current.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      
+      const isSunday = current.getDay() === 0;
+      const isHoliday = holidays.includes(dateStr);
+      
+      // Count only if it's not Sunday and not a holiday
+      if (!isSunday && !isHoliday) {
+        workingDays++;
+      }
+      
+      // Move to next day
+      current.setDate(current.getDate() + 1);
+    }
+    
+    setDuration(workingDays);
+    return workingDays;
+  };
+
+  const isDateExcluded = (date: Date) => {
+    // Create date string without timezone conversion
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
+    const isSunday = date.getDay() === 0;
+    const isHoliday = holidays.includes(dateStr);
+    return isSunday || isHoliday;
+  };
+
+  const getExcludedDatesCount = () => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+    
+    let excludedCount = 0;
+    const current = new Date(start);
+    
+    while (current <= end) {
+      if (isDateExcluded(current)) {
+        excludedCount++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    
+    return excludedCount;
+  };
+
+  const getTotalDays = () => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
     const diff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    // inclusive days
-    const days = diff >= 0 ? diff + 1 : 0;
-    setDuration(days || 0);
-    return days || 0;
+    return diff >= 0 ? diff + 1 : 0;
   };
 
   useEffect(() => {
     calculateDuration();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, holidays]);
 
   const validateForm = () => {
     if (!leaveType) {
@@ -264,6 +344,42 @@ const LeaveTab = () => {
         </Card>
       )}
 
+      {/* Holiday List */}
+      {holidays.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming Holidays</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {holidays
+                .map(dateStr => {
+                  const [year, month, day] = dateStr.split('-').map(Number);
+                  return { dateStr, date: new Date(year, month - 1, day) };
+                })
+                .filter(({ date }) => date >= new Date(new Date().setHours(0, 0, 0, 0)))
+                .sort((a, b) => a.date.getTime() - b.date.getTime())
+                .slice(0, 10)
+                .map(({ dateStr, date }) => (
+                  <div key={dateStr} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                    <span className="text-sm font-medium">
+                      {format(date, 'EEEE, MMMM dd, yyyy')}
+                    </span>
+                    <Badge variant="secondary">Holiday</Badge>
+                  </div>
+                ))}
+              {holidays.filter(dateStr => {
+                const [year, month, day] = dateStr.split('-').map(Number);
+                const date = new Date(year, month - 1, day);
+                return date >= new Date(new Date().setHours(0, 0, 0, 0));
+              }).length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No upcoming holidays</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -311,32 +427,118 @@ const LeaveTab = () => {
 
                 <div>
                   <Label>Start Date</Label>
-                  <div className="relative">
-                    <Input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      required
-                    />
-                    <Calendar className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !startDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {startDate ? format(new Date(startDate + 'T00:00:00'), "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={startDate ? new Date(startDate + 'T00:00:00') : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            setStartDate(format(date, 'yyyy-MM-dd'));
+                          }
+                        }}
+                        modifiers={{
+                          excluded: isDateExcluded,
+                        }}
+                        modifiersStyles={{
+                          excluded: { 
+                            textDecoration: 'line-through',
+                            color: 'hsl(var(--muted-foreground))',
+                            opacity: 0.5,
+                          },
+                        }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                      <div className="p-3 border-t bg-muted/30">
+                        <div className="flex items-start gap-2 text-xs">
+                          <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                          <div className="space-y-1">
+                            <p className="text-muted-foreground">Sundays and holidays are excluded</p>
+                            <div className="flex items-center gap-3">
+                              <span className="flex items-center gap-1">
+                                <span className="line-through opacity-50">00</span> = Excluded
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div>
                   <Label>End Date</Label>
-                  <div className="relative">
-                    <Input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      required
-                    />
-                    <Calendar className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !endDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {endDate ? format(new Date(endDate + 'T00:00:00'), "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={endDate ? new Date(endDate + 'T00:00:00') : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            setEndDate(format(date, 'yyyy-MM-dd'));
+                          }
+                        }}
+                        modifiers={{
+                          excluded: isDateExcluded,
+                        }}
+                        modifiersStyles={{
+                          excluded: { 
+                            textDecoration: 'line-through',
+                            color: 'hsl(var(--muted-foreground))',
+                            opacity: 0.5,
+                          },
+                        }}
+                        disabled={(date) => {
+                          if (!startDate) return false;
+                          return date < new Date(startDate + 'T00:00:00');
+                        }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                      <div className="p-3 border-t bg-muted/30">
+                        <div className="flex items-start gap-2 text-xs">
+                          <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                          <div className="space-y-1">
+                            <p className="text-muted-foreground">Sundays and holidays are excluded</p>
+                            <div className="flex items-center gap-3">
+                              <span className="flex items-center gap-1">
+                                <span className="line-through opacity-50">00</span> = Excluded
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div>
-                  <Label>Duration (days)</Label>
+                  <Label>Duration (working days)</Label>
                   <Input
                     type="number"
                     value={duration}
@@ -344,7 +546,14 @@ const LeaveTab = () => {
                     onChange={(e) => setDuration(parseFloat(e.target.value) || 0)}
                     min={0}
                   />
-                  <p className="text-xs text-muted-foreground">Auto-calculated from dates. Adjust for half-days if needed.</p>
+                  {startDate && endDate && (
+                    <div className="text-xs mt-1 space-y-0.5">
+                      <p className="text-muted-foreground">
+                        Total: {getTotalDays()} days | Excluded: {getExcludedDatesCount()} days | Working: {duration} days
+                      </p>
+                      <p className="text-muted-foreground">Adjust for half-days if needed</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
