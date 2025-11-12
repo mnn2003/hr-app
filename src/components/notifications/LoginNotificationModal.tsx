@@ -19,6 +19,7 @@ interface Notification {
   type: 'general' | 'birthday';
   createdAt: string;
   readBy: string[];
+  recipientId?: string;
 }
 
 const LoginNotificationModal = () => {
@@ -31,6 +32,11 @@ const LoginNotificationModal = () => {
     
     const checkUnreadNotifications = async () => {
       try {
+        // Get current user's employee ID
+        const employeesSnapshot = await getDocs(collection(db, 'employees'));
+        const currentEmployee = employeesSnapshot.docs.find(doc => doc.data().userId === user.uid);
+        const currentEmployeeId = currentEmployee?.id;
+
         const snapshot = await getDocs(collection(db, 'notifications'));
         const notifs = snapshot.docs
           .map(doc => ({
@@ -38,7 +44,13 @@ const LoginNotificationModal = () => {
             ...doc.data()
           })) as Notification[];
         
-        const unread = notifs.filter(n => !n.readBy?.includes(user.uid));
+        // Filter notifications: show general notifications to everyone, 
+        // but birthday wishes only to the recipient
+        const filteredNotifs = notifs.filter(n => 
+          n.type === 'general' || (n.type === 'birthday' && n.recipientId === currentEmployeeId)
+        );
+        
+        const unread = filteredNotifs.filter(n => !n.readBy?.includes(user.uid));
         
         if (unread.length > 0) {
           setNotifications(unread);
