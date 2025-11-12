@@ -21,6 +21,7 @@ interface Notification {
   readBy: string[];
   sentBy: string;
   sentByName?: string;
+  recipientId?: string;
 }
 
 const NotificationBell = () => {
@@ -32,23 +33,42 @@ const NotificationBell = () => {
   useEffect(() => {
     if (!user) return;
 
-    const q = query(
-      collection(db, 'notifications'),
-      orderBy('createdAt', 'desc')
-    );
+    const fetchEmployeeAndNotifications = async () => {
+      try {
+        // Get current user's employee ID
+        const employeesSnapshot = await getDocs(collection(db, 'employees'));
+        const currentEmployee = employeesSnapshot.docs.find(doc => doc.data().userId === user.uid);
+        const currentEmployeeId = currentEmployee?.id;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notifs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Notification[];
-      
-      setNotifications(notifs);
-      const unread = notifs.filter(n => !n.readBy?.includes(user.uid)).length;
-      setUnreadCount(unread);
-    });
+        const q = query(
+          collection(db, 'notifications'),
+          orderBy('createdAt', 'desc')
+        );
 
-    return () => unsubscribe();
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const notifs = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Notification[];
+          
+          // Filter notifications: show general notifications to everyone, 
+          // but birthday wishes only to the recipient
+          const filteredNotifs = notifs.filter(n => 
+            n.type === 'general' || (n.type === 'birthday' && n.recipientId === currentEmployeeId)
+          );
+          
+          setNotifications(filteredNotifs);
+          const unread = filteredNotifs.filter(n => !n.readBy?.includes(user.uid)).length;
+          setUnreadCount(unread);
+        });
+
+        return () => unsubscribe();
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    };
+
+    fetchEmployeeAndNotifications();
   }, [user]);
 
   const markAsRead = async (notificationId: string) => {
