@@ -212,7 +212,7 @@ const BirthdayWidget = () => {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                   <Badge
                     variant={birthday.isToday ? 'default' : 'outline'}
-                    className={`${birthday.isToday ? 'bg-birthday text-white' : 'border-birthday text-birthday'} whitespace-nowrap`
+                    className={`${birthday.isToday ? 'bg-birthday text-white' : 'border-birthday text-birthday'} whitespace-nowrap`}
                   >
                     {formatBirthdayText(birthday.daysUntil)}
                   </Badge>
