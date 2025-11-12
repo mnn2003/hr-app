@@ -39,6 +39,7 @@ interface Employee {
   isBlocked?: boolean;
   pan?: string;
   profileImageUrl?: string;
+  gender?: 'Male' | 'Female';
   // Contact Details
   currentAddress?: string;
   nativeAddress?: string;
@@ -108,6 +109,7 @@ const EmployeeManagement = () => {
     salary: '',
     experience: '',
     pan: '',
+    gender: '' as 'Male' | 'Female' | '',
     // Contact Details
     currentAddress: '',
     nativeAddress: '',
@@ -290,6 +292,7 @@ const EmployeeManagement = () => {
           departmentId: formData.departmentId || null,
           salary: formData.salary ? Number(formData.salary) : null,
           experience: formData.experience ? Number(formData.experience) : null,
+          gender: formData.gender || null,
           // Contact Details
           currentAddress: formData.currentAddress,
           nativeAddress: formData.nativeAddress,
@@ -367,6 +370,7 @@ const EmployeeManagement = () => {
           salary: formData.salary ? Number(formData.salary) : null,
           experience: formData.experience ? Number(formData.experience) : null,
           pan: formData.pan.toUpperCase(),
+          gender: formData.gender || null,
           userId: userCredential.user.uid,
           createdAt: new Date().toISOString(),
           ...(profileImageUrl && { profileImageUrl }),
@@ -418,7 +422,7 @@ const EmployeeManagement = () => {
       setFormData({ 
         name: '', employeeCode: '', email: '', phone: '', address: '', role: 'staff', 
         designation: '', dateOfBirth: '', dateOfJoining: '', departmentId: '', salary: '', 
-        experience: '', pan: '', currentAddress: '', nativeAddress: '', mobile: '', 
+        experience: '', pan: '', gender: '', currentAddress: '', nativeAddress: '', mobile: '', 
         akaName: '', placeOfBirth: '', nationality: '', nameAsPerBankPassbook: '', 
         nameAsPerPAN: '', nameAsPerAadhar: '', bloodGroup: '', height: '', weight: '', 
         qualification: '', previousExperience: '', familyDetails: '', drivingLicense: '', 
@@ -445,6 +449,7 @@ const EmployeeManagement = () => {
       salary: emp.salary?.toString() || '',
       experience: emp.experience?.toString() || '',
       pan: emp.pan || '',
+      gender: emp.gender || '',
       // Contact Details
       currentAddress: emp.currentAddress || '',
       nativeAddress: emp.nativeAddress || '',
@@ -480,7 +485,7 @@ const EmployeeManagement = () => {
     setFormData({ 
       name: '', employeeCode: '', email: '', phone: '', address: '', role: 'staff', 
       designation: '', dateOfBirth: '', dateOfJoining: '', departmentId: '', salary: '', 
-      experience: '', pan: '', currentAddress: '', nativeAddress: '', mobile: '', 
+      experience: '', pan: '', gender: '', currentAddress: '', nativeAddress: '', mobile: '', 
       akaName: '', placeOfBirth: '', nationality: '', nameAsPerBankPassbook: '', 
       nameAsPerPAN: '', nameAsPerAadhar: '', bloodGroup: '', height: '', weight: '', 
       qualification: '', previousExperience: '', familyDetails: '', drivingLicense: '', 
@@ -772,14 +777,29 @@ const EmployeeManagement = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="designation">Designation</Label>
-                      <Input
-                        id="designation"
-                        placeholder="e.g., Software Engineer, Manager"
-                        value={formData.designation}
-                        onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="designation">Designation</Label>
+                        <Input
+                          id="designation"
+                          placeholder="e.g., Software Engineer, Manager"
+                          value={formData.designation}
+                          onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="gender">Gender</Label>
+                        <Select value={formData.gender} onValueChange={(value: 'Male' | 'Female') => setFormData({ ...formData, gender: value })}>
+                          <SelectTrigger id="gender">
+                            <SelectValue placeholder="Select gender" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Male">Male</SelectItem>
+                            <SelectItem value="Female">Female</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     
                     <div className="space-y-2">
