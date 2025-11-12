@@ -48,11 +48,29 @@ const LeaveTab = () => {
   const [reason, setReason] = useState('');
   const [leaveBalance, setLeaveBalance] = useState<LeaveBalance | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [employeeGender, setEmployeeGender] = useState<'Male' | 'Female' | null>(null);
 
   useEffect(() => {
     fetchLeaves();
     fetchLeaveBalance();
+    fetchEmployeeGender();
   }, []);
+
+  const fetchEmployeeGender = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      const empQuery = query(collection(db, 'employees'), where('userId', '==', currentUser.uid));
+      const empSnapshot = await getDocs(empQuery);
+      if (!empSnapshot.empty) {
+        const empData = empSnapshot.docs[0].data();
+        setEmployeeGender(empData.gender || null);
+      }
+    } catch (error) {
+      console.error('Error fetching employee gender:', error);
+    }
+  };
 
   const fetchLeaves = async () => {
     try {
@@ -211,6 +229,20 @@ const LeaveTab = () => {
 
   const formattedLeaves = useMemo(() => leaves, [leaves]);
 
+  // Filter leave types based on gender
+  const availableLeaveTypes = useMemo(() => {
+    const genderSpecificTypes: Record<string, ('Male' | 'Female')[]> = {
+      'MATERNITY': ['Female'],
+      'PATERNITY': ['Male']
+    };
+
+    return Object.entries(LEAVE_TYPE_NAMES).filter(([key]) => {
+      const allowedGenders = genderSpecificTypes[key];
+      if (!allowedGenders) return true; // Available for all
+      return employeeGender && allowedGenders.includes(employeeGender);
+    });
+  }, [employeeGender]);
+
   return (
     <div className="space-y-4 max-w-4xl mx-auto p-4">
       {/* Balance overview */}
@@ -263,7 +295,7 @@ const LeaveTab = () => {
                       <SelectValue placeholder="Select leave type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(LEAVE_TYPE_NAMES).map(([key, label]) => (
+                      {availableLeaveTypes.map(([key, label]) => (
                         <SelectItem key={key} value={key}>
                           <div className="flex items-center justify-between w-full">
                             <span>{label}</span>
