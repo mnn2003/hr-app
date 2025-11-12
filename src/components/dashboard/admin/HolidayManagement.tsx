@@ -225,7 +225,10 @@ const HolidayManagement = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-semibold">{holiday.name}</p>
-                        <Badge variant="outline">{format(new Date(holiday.date), 'MMM dd, yyyy')}</Badge>
+                        <Badge variant="outline">{(() => {
+                          const [year, month, day] = holiday.date.split('-').map(Number);
+                          return format(new Date(year, month - 1, day), 'MMM dd, yyyy');
+                        })()}</Badge>
                       </div>
                       {holiday.description && (
                         <p className="text-sm text-muted-foreground">{holiday.description}</p>
