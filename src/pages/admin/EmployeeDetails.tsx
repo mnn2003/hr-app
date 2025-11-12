@@ -31,6 +31,7 @@ interface Employee {
   experience?: number;
   pan?: string;
   profileImageUrl?: string;
+  gender?: 'Male' | 'Female';
   currentAddress?: string;
   nativeAddress?: string;
   mobile?: string;
@@ -258,6 +259,7 @@ const EmployeeDetails = () => {
                     <InfoItem label="A.K.A. Name" value={employee.akaName} />
                     <InfoItem label="Place of Birth" value={employee.placeOfBirth} />
                     <InfoItem label="Nationality" value={employee.nationality} />
+                    <InfoItem label="Gender" value={employee.gender} />
                     <InfoItem label="Blood Group" value={employee.bloodGroup} />
                     <div className="grid grid-cols-2 gap-4">
                       <InfoItem label="Height (cm)" value={employee.height} />
