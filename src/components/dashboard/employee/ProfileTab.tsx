@@ -10,6 +10,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'react-hot-toast';
 import { User, Lock, Upload, MapPin, GraduationCap, Briefcase, Users, FileText, Heart } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { query, collection, where, getDocs } from 'firebase/firestore';
 
 const ProfileTab = () => {
   const { user, changePassword } = useAuth();
@@ -19,6 +21,7 @@ const ProfileTab = () => {
     address: '',
     phone: '',
     profileImageUrl: '',
+    departmentId: '',
     // Contact Details
     currentAddress: '',
     nativeAddress: '',
@@ -48,18 +51,100 @@ const ProfileTab = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [hodInfo, setHodInfo] = useState<{ name: string; email: string } | null>(null);
+  const [leaveApprovers, setLeaveApprovers] = useState<Array<{ name: string; email: string; role: string }>>([]);
 
   useEffect(() => {
     const fetchProfile = async () => {
       if (user) {
         const profileDoc = await getDoc(doc(db, 'employees', user.uid));
         if (profileDoc.exists()) {
-          setProfile(profileDoc.data() as any);
+          const profileData = profileDoc.data() as any;
+          setProfile(profileData);
+          
+          // Fetch HOD if employee has a department
+          if (profileData.departmentId) {
+            await fetchHOD(profileData.departmentId);
+          }
         }
+        
+        // Fetch leave approvers
+        await fetchLeaveApprovers();
       }
     };
     fetchProfile();
   }, [user]);
+
+  const fetchHOD = async (departmentId: string) => {
+    try {
+      // Get department details
+      const deptDoc = await getDoc(doc(db, 'departments', departmentId));
+      if (deptDoc.exists()) {
+        const deptData = deptDoc.data();
+        if (deptData.hodId) {
+          // Get HOD employee details
+          const hodDoc = await getDoc(doc(db, 'employees', deptData.hodId));
+          if (hodDoc.exists()) {
+            const hodData = hodDoc.data();
+            setHodInfo({
+              name: hodData.name || 'N/A',
+              email: hodData.email || 'N/A'
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching HOD:', error);
+    }
+  };
+
+  const fetchLeaveApprovers = async () => {
+    try {
+      const { query: firestoreQuery, collection, where, getDocs } = await import('firebase/firestore');
+      
+      // Get HR users
+      const hrQuery = firestoreQuery(collection(db, 'user_roles'), where('role', '==', 'hr'));
+      const hrSnapshot = await getDocs(hrQuery);
+      
+      // Get HOD users
+      const hodQuery = firestoreQuery(collection(db, 'user_roles'), where('role', '==', 'hod'));
+      const hodSnapshot = await getDocs(hodQuery);
+      
+      const approvers: Array<{ name: string; email: string; role: string }> = [];
+      
+      // Fetch HR employee details
+      for (const hrDoc of hrSnapshot.docs) {
+        const userId = hrDoc.data().userId;
+        const empDoc = await getDoc(doc(db, 'employees', userId));
+        if (empDoc.exists()) {
+          const empData = empDoc.data();
+          approvers.push({
+            name: empData.name || 'N/A',
+            email: empData.email || 'N/A',
+            role: 'HR'
+          });
+        }
+      }
+      
+      // Fetch HOD employee details
+      for (const hodDoc of hodSnapshot.docs) {
+        const userId = hodDoc.data().userId;
+        const empDoc = await getDoc(doc(db, 'employees', userId));
+        if (empDoc.exists()) {
+          const empData = empDoc.data();
+          approvers.push({
+            name: empData.name || 'N/A',
+            email: empData.email || 'N/A',
+            role: 'HOD'
+          });
+        }
+      }
+      
+      setLeaveApprovers(approvers);
+    } catch (error) {
+      console.error('Error fetching leave approvers:', error);
+    }
+  };
 
   const handleUpdateProfile = async () => {
     try {
@@ -170,6 +255,46 @@ const ProfileTab = () => {
           <Button onClick={handleUpdateProfile} size="lg" className="w-full md:w-auto">
             Update Profile
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* My Approvers Section */}
+      <Card className="shadow-lg border-primary/20">
+        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10">
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <Users className="h-6 w-6 text-primary" />
+            My Approvers
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-6">
+          {hodInfo && (
+            <div className="p-4 border rounded-lg bg-muted/30">
+              <h3 className="text-sm font-semibold text-primary mb-2">Head of Department (HOD)</h3>
+              <div className="space-y-1">
+                <p className="text-sm"><span className="font-medium">Name:</span> {hodInfo.name}</p>
+                <p className="text-sm"><span className="font-medium">Email:</span> {hodInfo.email}</p>
+              </div>
+            </div>
+          )}
+          
+          <div className="p-4 border rounded-lg bg-muted/30">
+            <h3 className="text-sm font-semibold text-primary mb-3">Leave Approvers</h3>
+            <div className="space-y-3">
+              {leaveApprovers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No approvers found</p>
+              ) : (
+                leaveApprovers.map((approver, index) => (
+                  <div key={index} className="flex items-start justify-between p-3 bg-background rounded-md border">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{approver.name}</p>
+                      <p className="text-xs text-muted-foreground">{approver.email}</p>
+                    </div>
+                    <Badge variant="secondary">{approver.role}</Badge>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
