@@ -6,10 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Cake, Send } from 'lucide-react';
+import { Cake, Send, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -17,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from '@/components/ui/dialog';
 
 interface EmployeeBirthday {
@@ -28,6 +28,14 @@ interface EmployeeBirthday {
   isToday: boolean;
 }
 
+const predefinedWishes = [
+  "🎉 Happy Birthday! Wishing you a fantastic day filled with joy and happiness!",
+  "🎂 Happy Birthday! May this year bring you success and prosperity!",
+  "🎈 Wishing you a wonderful birthday and a year full of blessings!",
+  "🌟 Happy Birthday! May all your dreams come true this year!",
+  "🎁 Happy Birthday! Hope your special day is as amazing as you are!",
+];
+
 const BirthdayWidget = () => {
   const { user } = useAuth();
   const [birthdays, setBirthdays] = useState<EmployeeBirthday[]>([]);
@@ -36,25 +44,15 @@ const BirthdayWidget = () => {
   const [sendingWish, setSendingWish] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeBirthday | null>(null);
 
-  const predefinedWishes = [
-    "🎉 Happy Birthday! Wishing you a fantastic day filled with joy and happiness!",
-    "🎂 Happy Birthday! May this year bring you success and prosperity!",
-    "🎈 Wishing you a wonderful birthday and a year full of blessings!",
-    "🌟 Happy Birthday! May all your dreams come true this year!",
-    "🎁 Happy Birthday! Hope your special day is as amazing as you are!"
-  ];
-
   useEffect(() => {
     fetchBirthdays();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchBirthdays = async () => {
     try {
       const snapshot = await getDocs(collection(db, 'employees'));
-      const employees = snapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data() 
-      }));
+      const employees = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -63,17 +61,12 @@ const BirthdayWidget = () => {
       employees.forEach((emp: any) => {
         if (emp.dateOfBirth) {
           try {
-            // Handle various date formats (YYYY-MM-DD, MM/DD/YYYY, timestamp)
             let birthDate: Date;
-            
+
             if (typeof emp.dateOfBirth === 'string') {
-              // Try parsing as ISO date (YYYY-MM-DD)
               if (emp.dateOfBirth.includes('-')) {
                 const [year, month, day] = emp.dateOfBirth.split('-').map(Number);
                 birthDate = new Date(year, month - 1, day);
-              } else if (emp.dateOfBirth.includes('/')) {
-                // Try parsing as MM/DD/YYYY
-                birthDate = new Date(emp.dateOfBirth);
               } else {
                 birthDate = new Date(emp.dateOfBirth);
               }
@@ -81,11 +74,7 @@ const BirthdayWidget = () => {
               birthDate = new Date(emp.dateOfBirth);
             }
 
-            // Validate the date
-            if (isNaN(birthDate.getTime())) {
-              console.error(`Invalid date for employee ${emp.name}:`, emp.dateOfBirth);
-              return;
-            }
+            if (isNaN(birthDate.getTime())) return;
 
             const thisYearBirthday = new Date(
               today.getFullYear(),
@@ -94,24 +83,20 @@ const BirthdayWidget = () => {
             );
             thisYearBirthday.setHours(0, 0, 0, 0);
 
-            // If birthday has passed this year, check next year
-            if (thisYearBirthday < today) {
-              thisYearBirthday.setFullYear(today.getFullYear() + 1);
-            }
+            if (thisYearBirthday < today) thisYearBirthday.setFullYear(today.getFullYear() + 1);
 
             const daysUntil = Math.ceil(
               (thisYearBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
             );
 
-            // Include today's birthdays and next 4 days
             if (daysUntil >= 0 && daysUntil <= 4) {
               upcomingBirthdays.push({
                 id: emp.id,
-                name: emp.name,
+                name: emp.name || 'Unknown',
                 dateOfBirth: emp.dateOfBirth,
                 department: emp.department,
                 daysUntil,
-                isToday: daysUntil === 0
+                isToday: daysUntil === 0,
               });
             }
           } catch (err) {
@@ -120,10 +105,8 @@ const BirthdayWidget = () => {
         }
       });
 
-      // Sort by days until birthday
       upcomingBirthdays.sort((a, b) => a.daysUntil - b.daysUntil);
       setBirthdays(upcomingBirthdays);
-      console.log('Upcoming birthdays:', upcomingBirthdays);
     } catch (error) {
       console.error('Error fetching birthdays:', error);
     } finally {
@@ -137,21 +120,28 @@ const BirthdayWidget = () => {
     return `In ${daysUntil} days`;
   };
 
-  const sendBirthdayWish = async () => {
+  const initials = (name = '') => {
+    return name
+      .split(' ')
+      .map(s => s.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('');
+  };
+
+  const sendBirthdayWish = async (closeDialog?: () => void) => {
     if (!user || !selectedEmployee || !wishMessage.trim()) {
       toast({
         title: 'Error',
         description: 'Please enter a birthday wish',
-        variant: 'destructive'
+        variant: 'destructive',
       });
       return;
     }
 
     setSendingWish(true);
     try {
-      // Get sender's name
       const senderSnapshot = await getDocs(collection(db, 'employees'));
-      const senderDoc = senderSnapshot.docs.find(doc => doc.data().userId === user.uid);
+      const senderDoc = senderSnapshot.docs.find((doc) => doc.data().userId === user.uid);
       const senderName = senderDoc?.data()?.name || user.email?.split('@')[0] || 'Someone';
 
       await addDoc(collection(db, 'notifications'), {
@@ -162,49 +152,30 @@ const BirthdayWidget = () => {
         readBy: [],
         sentBy: user.uid,
         sentByName: senderName,
-        recipientId: selectedEmployee.id
+        recipientId: selectedEmployee.id,
       });
 
       toast({
         title: 'Success',
-        description: `Birthday wish sent to ${selectedEmployee.name}!`
+        description: `Birthday wish sent to ${selectedEmployee.name}!`,
       });
 
       setWishMessage('');
       setSelectedEmployee(null);
+      if (closeDialog) closeDialog();
     } catch (error) {
       console.error('Error sending birthday wish:', error);
       toast({
         title: 'Error',
         description: 'Failed to send birthday wish',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setSendingWish(false);
     }
   };
 
-  if (loading) {
-    return null;
-  }
-
-  if (birthdays.length === 0) {
-    return (
-      <Card className="border-birthday/20 bg-gradient-to-br from-birthday/5 to-birthday/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <Cake className="h-6 w-6 text-birthday" />
-            Birthdays
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-center text-muted-foreground py-4">
-            Currently there are no Birthday's today
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
+  if (loading) return null;
 
   return (
     <Card className="border-birthday/20 bg-gradient-to-br from-birthday/5 to-birthday/10">
@@ -214,88 +185,112 @@ const BirthdayWidget = () => {
           Upcoming Birthdays
         </CardTitle>
       </CardHeader>
+
       <CardContent>
-        <div className="space-y-3">
-          {birthdays.map((birthday) => (
-            <div 
-              key={birthday.id} 
-              className={`p-3 rounded-lg flex items-center gap-3 transition-all ${
-                birthday.isToday 
-                  ? 'bg-birthday/20 border-2 border-birthday animate-pulse' 
-                  : 'bg-card border border-border hover:border-birthday/30'
-              }`}
-            >
-              <Avatar className="h-12 w-12">
-                <AvatarFallback className="bg-birthday text-white text-lg font-semibold">
-                  {birthday.name.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <p className="font-semibold">{birthday.name}</p>
-                {birthday.department && (
-                  <p className="text-xs text-muted-foreground">{birthday.department}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge 
-                  variant={birthday.isToday ? 'default' : 'outline'}
-                  className={birthday.isToday ? 'bg-birthday text-white' : 'border-birthday text-birthday'}
-                >
-                  {formatBirthdayText(birthday.daysUntil)}
-                </Badge>
-                {birthday.isToday && (
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="border-birthday text-birthday hover:bg-birthday hover:text-white"
-                        onClick={() => setSelectedEmployee(birthday)}
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Send Birthday Wish to {birthday.name}</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Label>Select a message or write your own</Label>
-                          <div className="space-y-2">
-                            {predefinedWishes.map((wish, index) => (
-                              <Button
-                                key={index}
-                                variant="outline"
-                                className="w-full justify-start text-left h-auto py-2 px-3"
-                                onClick={() => setWishMessage(wish)}
-                              >
-                                {wish}
+        {birthdays.length === 0 ? (
+          <p className="text-center text-muted-foreground py-4">Currently there are no birthdays in the next 4 days.</p>
+        ) : (
+          <div className="space-y-3">
+            {birthdays.map((birthday) => (
+              <div
+                key={birthday.id}
+                className={`p-3 rounded-lg flex flex-col sm:flex-row items-start sm:items-center gap-3 transition-all border ${
+                  birthday.isToday ? 'bg-birthday/20 border-2 border-birthday animate-pulse' : 'bg-card border-border hover:border-birthday/30'
+                }`}
+              >
+                <Avatar className="h-12 w-12 flex-shrink-0">
+                  <AvatarFallback className="bg-birthday text-white text-lg font-semibold">{initials(birthday.name)}</AvatarFallback>
+                </Avatar>
+
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate">{birthday.name}</p>
+                  {birthday.department && (
+                    <p className="text-xs text-muted-foreground truncate">{birthday.department}</p>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                  <Badge
+                    variant={birthday.isToday ? 'default' : 'outline'}
+                    className={`${birthday.isToday ? 'bg-birthday text-white' : 'border-birthday text-birthday'} whitespace-nowrap`
+                  >
+                    {formatBirthdayText(birthday.daysUntil)}
+                  </Badge>
+
+                  {birthday.isToday && (
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-birthday text-birthday hover:bg-birthday hover:text-white"
+                          onClick={() => setSelectedEmployee(birthday)}
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+
+                      <DialogContent className="w-full sm:max-w-xl max-h-[90vh] overflow-auto">
+                        <DialogHeader className="sticky top-0 bg-white/90 backdrop-blur-sm z-20 p-4 border-b">
+                          <div className="flex items-center justify-between gap-2">
+                            <DialogTitle>Send Birthday Wish to {birthday.name}</DialogTitle>
+                            <DialogClose asChild>
+                              <Button variant="ghost" size="sm" aria-label="Close dialog">
+                                <X className="h-4 w-4" />
                               </Button>
-                            ))}
+                            </DialogClose>
+                          </div>
+                        </DialogHeader>
+
+                        <div className="p-4 space-y-4">
+                          <div>
+                            <Label className="mb-2">Select a message or write your own</Label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {predefinedWishes.map((wish, index) => (
+                                <button
+                                  key={index}
+                                  type="button"
+                                  className="w-full text-left h-auto py-2 px-3 rounded-md border border-border hover:shadow-sm"
+                                  onClick={() => setWishMessage(wish)}
+                                >
+                                  <span className="block truncate">{wish}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <Textarea
+                              placeholder="Or type your own birthday wish..."
+                              value={wishMessage}
+                              onChange={(e) => setWishMessage(e.target.value)}
+                              rows={4}
+                              className="w-full min-h-[88px] resize-vertical"
+                            />
+                          </div>
+
+                          <div className="flex gap-2">
+                            <DialogClose asChild>
+                              <Button variant="ghost" className="flex-1">Cancel</Button>
+                            </DialogClose>
+
+                            <Button
+                              onClick={() => sendBirthdayWish(undefined)}
+                              disabled={sendingWish}
+                              className="flex-1"
+                            >
+                              {sendingWish ? 'Sending...' : 'Send Birthday Wish 🎉'}
+                            </Button>
                           </div>
                         </div>
-                        <Textarea
-                          placeholder="Or type your own birthday wish..."
-                          value={wishMessage}
-                          onChange={(e) => setWishMessage(e.target.value)}
-                          rows={3}
-                        />
-                        <Button 
-                          onClick={sendBirthdayWish} 
-                          disabled={sendingWish}
-                          className="w-full"
-                        >
-                          {sendingWish ? 'Sending...' : 'Send Birthday Wish 🎉'}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
