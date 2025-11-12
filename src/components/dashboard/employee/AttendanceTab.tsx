@@ -182,11 +182,22 @@ const AttendanceTab = ({ onAttendanceUpdate }: AttendanceTabProps) => {
   const tileClassName = ({ date, view }: any) => {
     if (view !== 'month') return '';
     
-    const dateStr = format(date, 'yyyy-MM-dd');
+    // Create date string in YYYY-MM-DD format avoiding timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
     const record = attendanceRecords.find((r: any) => r.date === dateStr);
     const holiday = holidays.find((h: any) => h.date === dateStr);
     const isSunday = date.getDay() === 0;
-    const isFuture = date > new Date();
+    
+    // Get today at midnight for accurate comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const compareDate = new Date(date);
+    compareDate.setHours(0, 0, 0, 0);
+    const isFuture = compareDate > today;
     
     // Don't style future dates
     if (isFuture) return 'text-muted-foreground/50';
@@ -198,7 +209,7 @@ const AttendanceTab = ({ onAttendanceUpdate }: AttendanceTabProps) => {
     
     // Mark as absent only if it's a weekday (Mon-Fri) in the past
     const isWeekday = date.getDay() >= 1 && date.getDay() <= 5; // Monday to Friday
-    const isPastWeekday = date < new Date() && isWeekday;
+    const isPastWeekday = compareDate < today && isWeekday;
     
     if (isPastWeekday) {
       return 'bg-red-100 text-red-600 font-semibold hover:bg-red-200';
@@ -209,7 +220,13 @@ const AttendanceTab = ({ onAttendanceUpdate }: AttendanceTabProps) => {
 
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
-    const dateStr = format(date, 'yyyy-MM-dd');
+    
+    // Create date string avoiding timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
     const holiday = holidays.find((h: any) => h.date === dateStr);
     const attendance = attendanceRecords.find((r: any) => r.date === dateStr);
     
@@ -398,7 +415,10 @@ const AttendanceTab = ({ onAttendanceUpdate }: AttendanceTabProps) => {
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground">Date</p>
-                <p className="text-lg font-semibold">{format(new Date(selectedHoliday.date), 'MMMM dd, yyyy')}</p>
+                <p className="text-lg font-semibold">{(() => {
+                  const [year, month, day] = selectedHoliday.date.split('-').map(Number);
+                  return format(new Date(year, month - 1, day), 'MMMM dd, yyyy');
+                })()}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Holiday Name</p>
