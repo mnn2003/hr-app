@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Cake, Send } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -33,6 +35,14 @@ const BirthdayWidget = () => {
   const [wishMessage, setWishMessage] = useState('');
   const [sendingWish, setSendingWish] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeBirthday | null>(null);
+
+  const predefinedWishes = [
+    "🎉 Happy Birthday! Wishing you a fantastic day filled with joy and happiness!",
+    "🎂 Happy Birthday! May this year bring you success and prosperity!",
+    "🎈 Wishing you a wonderful birthday and a year full of blessings!",
+    "🌟 Happy Birthday! May all your dreams come true this year!",
+    "🎁 Happy Birthday! Hope your special day is as amazing as you are!"
+  ];
 
   useEffect(() => {
     fetchBirthdays();
@@ -174,8 +184,26 @@ const BirthdayWidget = () => {
     }
   };
 
-  if (loading || birthdays.length === 0) {
+  if (loading) {
     return null;
+  }
+
+  if (birthdays.length === 0) {
+    return (
+      <Card className="border-birthday/20 bg-gradient-to-br from-birthday/5 to-birthday/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <Cake className="h-6 w-6 text-birthday" />
+            Birthdays
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-center text-muted-foreground py-4">
+            Currently there are no Birthday's today
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -232,11 +260,26 @@ const BirthdayWidget = () => {
                         <DialogTitle>Send Birthday Wish to {birthday.name}</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
-                        <Input
-                          placeholder="Type your birthday wish..."
+                        <div className="space-y-2">
+                          <Label>Select a message or write your own</Label>
+                          <div className="space-y-2">
+                            {predefinedWishes.map((wish, index) => (
+                              <Button
+                                key={index}
+                                variant="outline"
+                                className="w-full justify-start text-left h-auto py-2 px-3"
+                                onClick={() => setWishMessage(wish)}
+                              >
+                                {wish}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                        <Textarea
+                          placeholder="Or type your own birthday wish..."
                           value={wishMessage}
                           onChange={(e) => setWishMessage(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && sendBirthdayWish()}
+                          rows={3}
                         />
                         <Button 
                           onClick={sendBirthdayWish} 
