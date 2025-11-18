@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'react-hot-toast';
 import { UserPlus, Edit, Trash2, Search, Mail, Phone, MapPin, User, Briefcase, Shield, Lock, Ban, CheckCircle, KeyRound, Upload, FileSpreadsheet, Image as ImageIcon, MoreVertical, X, GraduationCap, Users, FileText, Heart, Eye } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
@@ -90,6 +91,8 @@ const EmployeeManagement = () => {
   const [panCardFile, setPanCardFile] = useState<File | null>(null);
   const [aadharCardFile, setAadharCardFile] = useState<File | null>(null);
   const [qualificationDocFile, setQualificationDocFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
   const panCardInputRef = useRef<HTMLInputElement>(null);
@@ -608,17 +611,24 @@ const EmployeeManagement = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsImporting(true);
+    setImportProgress({ current: 0, total: 0 });
+
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
+      const totalRows = jsonData.length;
+      setImportProgress({ current: 0, total: totalRows });
+
       let successCount = 0;
       let errorCount = 0;
       const errors: string[] = [];
 
       for (let i = 0; i < jsonData.length; i++) {
+        setImportProgress({ current: i + 1, total: totalRows });
         const row = jsonData[i] as any;
         const rowNumber = i + 2; // +2 because Excel is 1-indexed and has header row
         
@@ -757,6 +767,9 @@ const EmployeeManagement = () => {
     } catch (error) {
       console.error('Error reading Excel file:', error);
       toast.error('Failed to read Excel file');
+    } finally {
+      setIsImporting(false);
+      setImportProgress({ current: 0, total: 0 });
     }
   };
 
@@ -857,10 +870,11 @@ const EmployeeManagement = () => {
                 onClick={() => excelInputRef.current?.click()}
                 className="flex-1 sm:flex-none text-sm"
                 size="sm"
+                disabled={isImporting}
               >
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Import Excel</span>
-                <span className="sm:hidden">Import</span>
+                <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import Excel'}</span>
+                <span className="sm:hidden">{isImporting ? 'Importing...' : 'Import'}</span>
               </Button>
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
@@ -1579,6 +1593,30 @@ const EmployeeManagement = () => {
           </div>
         )}
       </CardContent>
+
+      {/* Import Progress Dialog */}
+      <Dialog open={isImporting} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Importing Employees</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Processing employees...</span>
+                <span>{importProgress.current} / {importProgress.total}</span>
+              </div>
+              <Progress 
+                value={importProgress.total > 0 ? (importProgress.current / importProgress.total) * 100 : 0} 
+                className="h-2"
+              />
+            </div>
+            <p className="text-sm text-center text-muted-foreground">
+              Please wait while we import your employee data
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
