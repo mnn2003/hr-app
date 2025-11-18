@@ -614,57 +614,100 @@ const EmployeeManagement = () => {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      const batch = writeBatch(db);
       let successCount = 0;
       let errorCount = 0;
+      const errors: string[] = [];
 
-      for (const row of jsonData as any[]) {
+      for (let i = 0; i < jsonData.length; i++) {
+        const row = jsonData[i] as any;
+        const rowNumber = i + 2; // +2 because Excel is 1-indexed and has header row
+        
         try {
-          const employeeCode = row.employeeCode || row.EmployeeCode;
-          const pan = row.pan || row.PAN;
-          const email = `${employeeCode}@company.local`;
-          const password = pan.toUpperCase();
-
-          if (!employeeCode || !pan || pan.length !== 10) {
+          // Extract and validate employee code (match template headers with spaces)
+          const employeeCode = row['Employee Code'] || row.employeeCode || row.EmployeeCode;
+          if (!employeeCode || typeof employeeCode !== 'string' || employeeCode.trim() === '') {
+            errors.push(`Row ${rowNumber}: Missing or invalid Employee Code`);
             errorCount++;
             continue;
           }
 
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          // Extract and validate PAN (match template headers)
+          const pan = row['PAN Number'] || row.pan || row.PAN;
+          if (!pan || typeof pan !== 'string') {
+            errors.push(`Row ${rowNumber} (${employeeCode}): Missing PAN Number`);
+            errorCount++;
+            continue;
+          }
+          
+          const panStr = String(pan).trim();
+          if (panStr.length !== 10) {
+            errors.push(`Row ${rowNumber} (${employeeCode}): PAN must be exactly 10 characters (found: ${panStr.length})`);
+            errorCount++;
+            continue;
+          }
+
+          // Validate name (match template headers)
+          const name = row['Employee Name'] || row.name || row.Name;
+          if (!name || typeof name !== 'string' || name.trim() === '') {
+            errors.push(`Row ${rowNumber} (${employeeCode}): Missing Employee Name`);
+            errorCount++;
+            continue;
+          }
+          
+          const email = `${employeeCode.trim()}@company.local`;
+          const password = panStr.toUpperCase();
+
+          // Try to create Firebase auth user
+          let userCredential;
+          try {
+            userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          } catch (authError: any) {
+            if (authError.code === 'auth/email-already-in-use') {
+              errors.push(`Row ${rowNumber} (${employeeCode}): Employee already exists in system`);
+            } else if (authError.code === 'auth/invalid-email') {
+              errors.push(`Row ${rowNumber} (${employeeCode}): Invalid email format`);
+            } else if (authError.code === 'auth/weak-password') {
+              errors.push(`Row ${rowNumber} (${employeeCode}): Password too weak`);
+            } else {
+              errors.push(`Row ${rowNumber} (${employeeCode}): Authentication error - ${authError.message}`);
+            }
+            errorCount++;
+            continue;
+          }
           
           const employeeData = {
-            name: row.name || row.Name || '',
-            employeeCode,
-            email: row.email || row.Email || '',
-            phone: row.phone || row.Phone || '',
-            address: row.address || row.Address || '',
-            role: (row.role || row.Role || 'staff') as UserRole,
-            designation: row.designation || row.Designation || '',
-            dateOfBirth: row.dateOfBirth || row.DateOfBirth || '',
-            dateOfJoining: row.dateOfJoining || row.DateOfJoining || '',
-            departmentId: row.departmentId || row.DepartmentId || null,
-            salary: row.salary || row.Salary || null,
-            experience: row.experience || row.Experience || null,
-            pan: pan.toUpperCase(),
-            gender: row.gender || row.Gender || null,
-            currentAddress: row.currentAddress || row.CurrentAddress || '',
-            nativeAddress: row.nativeAddress || row.NativeAddress || '',
-            mobile: row.mobile || row.Mobile || '',
-            akaName: row.akaName || row.AkaName || '',
-            placeOfBirth: row.placeOfBirth || row.PlaceOfBirth || '',
-            nationality: row.nationality || row.Nationality || '',
-            nameAsPerBankPassbook: row.nameAsPerBankPassbook || row.NameAsPerBankPassbook || '',
-            nameAsPerPAN: row.nameAsPerPAN || row.NameAsPerPAN || '',
-            nameAsPerAadhar: row.nameAsPerAadhar || row.NameAsPerAadhar || '',
-            bloodGroup: row.bloodGroup || row.BloodGroup || '',
-            height: row.height || row.Height || '',
-            weight: row.weight || row.Weight || '',
-            qualification: row.qualification || row.Qualification || '',
-            previousExperience: row.previousExperience || row.PreviousExperience || '',
-            familyDetails: row.familyDetails || row.FamilyDetails || '',
-            drivingLicense: row.drivingLicense || row.DrivingLicense || '',
-            passport: row.passport || row.Passport || '',
-            visa: row.visa || row.Visa || '',
+            name: String(name).trim(),
+            employeeCode: employeeCode.trim(),
+            email: row['Email'] || row.email || row.Email || '',
+            phone: row['Phone'] || row.phone || row.Phone || '',
+            address: row['Address'] || row.address || row.Address || '',
+            role: (row['Role (staff/hr/hod/intern)'] || row.role || row.Role || 'staff') as UserRole,
+            designation: row['Designation'] || row.designation || row.Designation || '',
+            dateOfBirth: row['Date of Birth (YYYY-MM-DD)'] || row.dateOfBirth || row.DateOfBirth || '',
+            dateOfJoining: row['Date of Joining (YYYY-MM-DD)'] || row.dateOfJoining || row.DateOfJoining || '',
+            departmentId: row['Department ID'] || row.departmentId || row.DepartmentId || null,
+            salary: row['Salary'] || row.salary || row.Salary || null,
+            experience: row['Experience (years)'] || row.experience || row.Experience || null,
+            pan: panStr.toUpperCase(),
+            gender: row['Gender (Male/Female)'] || row.gender || row.Gender || null,
+            currentAddress: row['Current Address'] || row.currentAddress || row.CurrentAddress || '',
+            nativeAddress: row['Native Address'] || row.nativeAddress || row.NativeAddress || '',
+            mobile: row['Mobile Number'] || row.mobile || row.Mobile || '',
+            akaName: row['Also Known As'] || row.akaName || row.AkaName || '',
+            placeOfBirth: row['Place of Birth'] || row.placeOfBirth || row.PlaceOfBirth || '',
+            nationality: row['Nationality'] || row.nationality || row.Nationality || '',
+            nameAsPerBankPassbook: row['Name as per Bank Passbook'] || row.nameAsPerBankPassbook || row.NameAsPerBankPassbook || '',
+            nameAsPerPAN: row['Name as per PAN'] || row.nameAsPerPAN || row.NameAsPerPAN || '',
+            nameAsPerAadhar: row['Name as per Aadhar'] || row.nameAsPerAadhar || row.NameAsPerAadhar || '',
+            bloodGroup: row['Blood Group'] || row.bloodGroup || row.BloodGroup || '',
+            height: row['Height'] || row.height || row.Height || '',
+            weight: row['Weight'] || row.weight || row.Weight || '',
+            qualification: row['Qualification'] || row.qualification || row.Qualification || '',
+            previousExperience: row['Previous Experience'] || row.previousExperience || row.PreviousExperience || '',
+            familyDetails: row['Family Details'] || row.familyDetails || row.FamilyDetails || '',
+            drivingLicense: row['Driving License'] || row.drivingLicense || row.DrivingLicense || '',
+            passport: row['Passport'] || row.passport || row.Passport || '',
+            visa: row['Visa'] || row.visa || row.Visa || '',
             userId: userCredential.user.uid,
             createdAt: new Date().toISOString()
           };
@@ -676,13 +719,37 @@ const EmployeeManagement = () => {
           });
 
           successCount++;
-        } catch (error) {
-          console.error('Error importing employee:', error);
+        } catch (error: any) {
+          console.error(`Error importing row ${rowNumber}:`, error);
+          errors.push(`Row ${rowNumber}: ${error.message || 'Unknown error'}`);
           errorCount++;
         }
       }
 
-      toast.success(`Import completed: ${successCount} successful, ${errorCount} failed`);
+      // Show results
+      if (successCount > 0) {
+        toast.success(`Import completed: ${successCount} successful, ${errorCount} failed`);
+      } else {
+        toast.error(`Import failed: ${errorCount} errors`);
+      }
+
+      // Log detailed errors
+      if (errors.length > 0) {
+        console.error('Import errors:', errors);
+        toast.error(
+          <div className="max-h-60 overflow-y-auto">
+            <p className="font-semibold mb-2">Import Errors:</p>
+            <ul className="text-xs space-y-1">
+              {errors.slice(0, 10).map((err, idx) => (
+                <li key={idx}>• {err}</li>
+              ))}
+              {errors.length > 10 && <li>... and {errors.length - 10} more errors (check console)</li>}
+            </ul>
+          </div>,
+          { duration: 10000 }
+        );
+      }
+
       fetchEmployees();
       if (excelInputRef.current) {
         excelInputRef.current.value = '';
