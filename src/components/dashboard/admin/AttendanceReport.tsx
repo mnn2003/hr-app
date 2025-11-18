@@ -384,4 +384,4 @@ const AttendanceReportHR = () => {
   );
 };
 
-export default AttendanceReport;
+export default AttendanceReportHR;
