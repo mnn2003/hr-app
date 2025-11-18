@@ -501,6 +501,109 @@ const EmployeeManagement = () => {
     setIsDialogOpen(true);
   };
 
+  const handleDownloadTemplate = () => {
+    try {
+      // Create template data with all fields from formData
+      const templateHeaders = {
+        name: 'Employee Name',
+        employeeCode: 'Employee Code',
+        email: 'Email',
+        phone: 'Phone',
+        address: 'Address',
+        role: 'Role (staff/hr/hod/intern)',
+        designation: 'Designation',
+        dateOfBirth: 'Date of Birth (YYYY-MM-DD)',
+        dateOfJoining: 'Date of Joining (YYYY-MM-DD)',
+        departmentId: 'Department ID',
+        salary: 'Salary',
+        experience: 'Experience (years)',
+        pan: 'PAN Number',
+        gender: 'Gender (Male/Female)',
+        currentAddress: 'Current Address',
+        nativeAddress: 'Native Address',
+        mobile: 'Mobile Number',
+        akaName: 'Also Known As',
+        placeOfBirth: 'Place of Birth',
+        nationality: 'Nationality',
+        nameAsPerBankPassbook: 'Name as per Bank Passbook',
+        nameAsPerPAN: 'Name as per PAN',
+        nameAsPerAadhar: 'Name as per Aadhar',
+        bloodGroup: 'Blood Group',
+        height: 'Height',
+        weight: 'Weight',
+        qualification: 'Qualification',
+        previousExperience: 'Previous Experience',
+        familyDetails: 'Family Details',
+        drivingLicense: 'Driving License',
+        passport: 'Passport',
+        visa: 'Visa'
+      };
+
+      // Create sample data row with instructions
+      const sampleData = {
+        name: 'John Doe',
+        employeeCode: 'EMP001',
+        email: 'john.doe@example.com',
+        phone: '+1234567890',
+        address: '123 Main St, City',
+        role: 'staff',
+        designation: 'Software Engineer',
+        dateOfBirth: '1990-01-15',
+        dateOfJoining: '2023-01-01',
+        departmentId: 'dept-id-here',
+        salary: '50000',
+        experience: '5',
+        pan: 'ABCDE1234F',
+        gender: 'Male',
+        currentAddress: '123 Main St, City',
+        nativeAddress: '456 Home St, Town',
+        mobile: '+1234567890',
+        akaName: 'Johnny',
+        placeOfBirth: 'City Name',
+        nationality: 'Country Name',
+        nameAsPerBankPassbook: 'John Doe',
+        nameAsPerPAN: 'John Doe',
+        nameAsPerAadhar: 'John Doe',
+        bloodGroup: 'O+',
+        height: '175 cm',
+        weight: '70 kg',
+        qualification: 'Bachelor of Engineering',
+        previousExperience: 'Worked at Company XYZ for 3 years',
+        familyDetails: 'Father: John Sr., Mother: Jane',
+        drivingLicense: 'DL1234567890',
+        passport: 'P1234567',
+        visa: 'V1234567'
+      };
+
+      // Create workbook with headers and sample data
+      const worksheet = XLSX.utils.json_to_sheet([sampleData], {
+        header: Object.keys(templateHeaders)
+      });
+
+      // Replace first row with descriptive headers
+      Object.keys(templateHeaders).forEach((key, index) => {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: index });
+        worksheet[cellAddress].v = templateHeaders[key as keyof typeof templateHeaders];
+      });
+
+      // Set column widths
+      const columnWidths = Object.keys(templateHeaders).map(() => ({ wch: 20 }));
+      worksheet['!cols'] = columnWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Employee Template');
+
+      // Generate and download file
+      const fileName = `Employee_Import_Template_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+
+      toast.success('Template downloaded successfully!');
+    } catch (error) {
+      console.error('Error generating template:', error);
+      toast.error('Failed to generate template');
+    }
+  };
+
   const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -543,6 +646,25 @@ const EmployeeManagement = () => {
             salary: row.salary || row.Salary || null,
             experience: row.experience || row.Experience || null,
             pan: pan.toUpperCase(),
+            gender: row.gender || row.Gender || null,
+            currentAddress: row.currentAddress || row.CurrentAddress || '',
+            nativeAddress: row.nativeAddress || row.NativeAddress || '',
+            mobile: row.mobile || row.Mobile || '',
+            akaName: row.akaName || row.AkaName || '',
+            placeOfBirth: row.placeOfBirth || row.PlaceOfBirth || '',
+            nationality: row.nationality || row.Nationality || '',
+            nameAsPerBankPassbook: row.nameAsPerBankPassbook || row.NameAsPerBankPassbook || '',
+            nameAsPerPAN: row.nameAsPerPAN || row.NameAsPerPAN || '',
+            nameAsPerAadhar: row.nameAsPerAadhar || row.NameAsPerAadhar || '',
+            bloodGroup: row.bloodGroup || row.BloodGroup || '',
+            height: row.height || row.Height || '',
+            weight: row.weight || row.Weight || '',
+            qualification: row.qualification || row.Qualification || '',
+            previousExperience: row.previousExperience || row.PreviousExperience || '',
+            familyDetails: row.familyDetails || row.FamilyDetails || '',
+            drivingLicense: row.drivingLicense || row.DrivingLicense || '',
+            passport: row.passport || row.Passport || '',
+            visa: row.visa || row.Visa || '',
             userId: userCredential.user.uid,
             createdAt: new Date().toISOString()
           };
@@ -654,6 +776,15 @@ const EmployeeManagement = () => {
               className="hidden"
             />
             <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handleDownloadTemplate}
+                className="flex-1 sm:flex-none text-sm"
+                size="sm"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Download Template
+              </Button>
               <Button 
                 variant="outline" 
                 onClick={() => excelInputRef.current?.click()}
