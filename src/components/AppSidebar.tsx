@@ -36,6 +36,8 @@ interface MenuPreferences {
   profile: boolean;
   attendance: boolean;
   report: boolean;
+  attendanceReport: boolean;
+  employeeDirectory: boolean;
   leave: boolean;
   salary: boolean;
   employees: boolean;
@@ -68,6 +70,8 @@ export function AppSidebar() {
     profile: true,
     attendance: true,
     report: true,
+    attendanceReport: true,
+    employeeDirectory: true,
     leave: true,
     salary: true,
     employees: true,
@@ -127,6 +131,8 @@ export function AppSidebar() {
     { id: '/profile', label: 'Profile', icon: UserCog, visible: menuPreferences.profile },
     { id: '/attendance', label: 'Attendance', icon: Clock, visible: menuPreferences.attendance },
     { id: '/report', label: 'Report', icon: FileText, visible: menuPreferences.report },
+    { id: '/attendance-report', label: 'Attendance Report', icon: FileText, visible: menuPreferences.attendanceReport },
+    { id: '/employee-directory', label: 'Employee Directory', icon: Users, visible: menuPreferences.employeeDirectory },
     { id: '/leave', label: 'Leave', icon: Calendar, visible: menuPreferences.leave },
     { id: '/salary', label: 'Salary', icon: DollarSign, visible: menuPreferences.salary },
   ];
@@ -141,6 +147,8 @@ export function AppSidebar() {
     { id: '/leave-approvals', label: 'Leave Approvals', icon: CalendarCheck, visible: Boolean(menuPreferences.leaveApprovals) },
     { id: '/leave-management', label: 'Leave Management', icon: Calendar, visible: Boolean(menuPreferences.leaveManagement) && normalizedRole === 'hr' },
     { id: '/attendance-management', label: 'Attendance Mgmt', icon: Clock, visible: Boolean(menuPreferences.attendanceManagement) && normalizedRole === 'hr' },
+    { id: '/attendance-report', label: 'Attendance Report', icon: FileText, visible: Boolean(menuPreferences.attendanceReport) && normalizedRole === 'hr' },
+    { id: '/employee-directory', label: 'Employee Directory', icon: Users, visible: Boolean(menuPreferences.employeeDirectory) },
     { id: '/holidays', label: 'Holidays', icon: Calendar, visible: Boolean(menuPreferences.holidays) && normalizedRole === 'hr' },
     { id: '/salary-slips', label: 'Salary Slips', icon: DollarSign, visible: Boolean(menuPreferences.salarySlips) && normalizedRole === 'hr' },
   ];
