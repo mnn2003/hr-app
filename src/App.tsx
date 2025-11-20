@@ -25,6 +25,11 @@ import AttendanceReportAdmin from "./pages/admin/AttendanceReport";
 import EmployeeDirectory from "./pages/EmployeeDirectory";
 import Holidays from "./pages/admin/Holidays";
 import SalarySlips from "./pages/admin/SalarySlips";
+import ExitManagement from "./pages/admin/ExitManagement";
+import Helpdesk from "./pages/Helpdesk";
+import SelfService from "./pages/SelfService";
+import SelfServiceManagement from "./pages/admin/SelfServiceManagement";
+import HRAnalytics from "./pages/admin/HRAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +67,11 @@ const App = () => (
             <Route path="/employee-directory" element={<ProtectedRoute><EmployeeDirectory /></ProtectedRoute>} />
             <Route path="/holidays" element={<ProtectedRoute><Holidays /></ProtectedRoute>} />
             <Route path="/salary-slips" element={<ProtectedRoute><SalarySlips /></ProtectedRoute>} />
+            <Route path="/exit-management" element={<ProtectedRoute><ExitManagement /></ProtectedRoute>} />
+            <Route path="/helpdesk" element={<ProtectedRoute><Helpdesk /></ProtectedRoute>} />
+            <Route path="/self-service" element={<ProtectedRoute><SelfService /></ProtectedRoute>} />
+            <Route path="/self-service-management" element={<ProtectedRoute><SelfServiceManagement /></ProtectedRoute>} />
+            <Route path="/hr-analytics" element={<ProtectedRoute><HRAnalytics /></ProtectedRoute>} />
             <Route path="/" element={<Navigate to="/login" />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
