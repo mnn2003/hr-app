@@ -12,6 +12,9 @@ import {
   UserCog,
   CalendarCheck,
   LogOut,
+  MessageSquare,
+  FileBarChart,
+  BarChart3,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -47,6 +50,11 @@ interface MenuPreferences {
   attendanceManagement: boolean;
   holidays: boolean;
   salarySlips: boolean;
+  exitManagement: boolean;
+  helpdesk: boolean;
+  selfService: boolean;
+  selfServiceManagement: boolean;
+  hrAnalytics: boolean;
 }
 
 export function AppSidebar() {
@@ -81,6 +89,11 @@ export function AppSidebar() {
     attendanceManagement: true,
     holidays: true,
     salarySlips: true,
+    exitManagement: true,
+    helpdesk: true,
+    selfService: true,
+    selfServiceManagement: true,
+    hrAnalytics: true,
   });
 
   useEffect(() => {
@@ -131,10 +144,12 @@ export function AppSidebar() {
     { id: '/profile', label: 'Profile', icon: UserCog, visible: menuPreferences.profile },
     { id: '/attendance', label: 'Attendance', icon: Clock, visible: menuPreferences.attendance },
     { id: '/report', label: 'Report', icon: FileText, visible: menuPreferences.report },
-    { id: '/attendance-report', label: 'Attendance Report', icon: FileText, visible: menuPreferences.attendanceReport },
+    { id: '/attendance-report', label: 'Attendance Report', icon: FileBarChart, visible: menuPreferences.attendanceReport },
     { id: '/employee-directory', label: 'Employee Directory', icon: Users, visible: menuPreferences.employeeDirectory },
     { id: '/leave', label: 'Leave', icon: Calendar, visible: menuPreferences.leave },
     { id: '/salary', label: 'Salary', icon: DollarSign, visible: menuPreferences.salary },
+    { id: '/helpdesk', label: 'Helpdesk', icon: MessageSquare, visible: menuPreferences.helpdesk },
+    { id: '/self-service', label: 'Self Service', icon: FileText, visible: menuPreferences.selfService },
   ];
 
   // ✅ Admin / HR Menu
@@ -147,10 +162,15 @@ export function AppSidebar() {
     { id: '/leave-approvals', label: 'Leave Approvals', icon: CalendarCheck, visible: Boolean(menuPreferences.leaveApprovals) },
     { id: '/leave-management', label: 'Leave Management', icon: Calendar, visible: Boolean(menuPreferences.leaveManagement) && normalizedRole === 'hr' },
     { id: '/attendance-management', label: 'Attendance Mgmt', icon: Clock, visible: Boolean(menuPreferences.attendanceManagement) && normalizedRole === 'hr' },
-    { id: '/attendance-report', label: 'Attendance Report', icon: FileText, visible: Boolean(menuPreferences.attendanceReport) && normalizedRole === 'hr' },
+    { id: '/attendance-report', label: 'Attendance Report', icon: FileBarChart, visible: Boolean(menuPreferences.attendanceReport) && normalizedRole === 'hr' },
     { id: '/employee-directory', label: 'Employee Directory', icon: Users, visible: Boolean(menuPreferences.employeeDirectory) },
     { id: '/holidays', label: 'Holidays', icon: Calendar, visible: Boolean(menuPreferences.holidays) && normalizedRole === 'hr' },
     { id: '/salary-slips', label: 'Salary Slips', icon: DollarSign, visible: Boolean(menuPreferences.salarySlips) && normalizedRole === 'hr' },
+    { id: '/exit-management', label: 'Exit Management', icon: UserCog, visible: Boolean(menuPreferences.exitManagement) && (normalizedRole === 'hr' || normalizedRole === 'hod') },
+    { id: '/helpdesk', label: 'Helpdesk', icon: MessageSquare, visible: Boolean(menuPreferences.helpdesk) },
+    { id: '/self-service', label: 'Self Service', icon: FileText, visible: Boolean(menuPreferences.selfService) },
+    { id: '/self-service-management', label: 'Self Service Mgmt', icon: Settings, visible: Boolean(menuPreferences.selfServiceManagement) && normalizedRole === 'hr' },
+    { id: '/hr-analytics', label: 'HR Analytics', icon: BarChart3, visible: Boolean(menuPreferences.hrAnalytics) && normalizedRole === 'hr' },
   ];
 
   const menuItems = isEmployee ? employeeMenuItems : adminMenuItems;
@@ -191,12 +211,14 @@ export function AppSidebar() {
 
         <Separator />
 
-        {/* Menu Items */}
+        {/* Personal Menu Items */}
         <SidebarGroup>
-          {state !== 'collapsed' && <SidebarGroupLabel>Menu</SidebarGroupLabel>}
+          {state !== 'collapsed' && <SidebarGroupLabel>Personal</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleMenuItems.map((item) => (
+              {visibleMenuItems.filter(item => 
+                ['/dashboard', '/profile', '/attendance', '/report', '/attendance-report', '/employee-directory', '/leave', '/salary', '/helpdesk', '/self-service'].includes(item.id)
+              ).map((item) => (
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
                     onClick={() => handleNavigation(item.id)}
@@ -211,6 +233,34 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin Menu Items */}
+        {isHrOrHod && (
+          <>
+            <Separator />
+            <SidebarGroup>
+              {state !== 'collapsed' && <SidebarGroupLabel>Admin Tools</SidebarGroupLabel>}
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {visibleMenuItems.filter(item => 
+                    !['/dashboard', '/profile', '/attendance', '/report', '/attendance-report', '/employee-directory', '/leave', '/salary', '/helpdesk', '/self-service'].includes(item.id)
+                  ).map((item) => (
+                    <SidebarMenuItem key={item.id}>
+                      <SidebarMenuButton
+                        onClick={() => handleNavigation(item.id)}
+                        isActive={location.pathname === item.id}
+                        tooltip={state === 'collapsed' ? item.label : undefined}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {state !== 'collapsed' && <span>{item.label}</span>}
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
 
         <Separator />
 
