@@ -21,21 +21,43 @@ interface TaxDeclaration {
   status: string;
 }
 
+// Get current Indian Financial Year: Example → "2024-25"
+const getCurrentFY = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1; // 1–12
+
+  if (month < 4) {
+    // Jan–Mar → financial year is previousYear-currentYear
+    return `${year - 1}-${String(year).slice(-2)}`;
+  } else {
+    // Apr–Dec → financial year is currentYear-nextYear
+    return `${year}-${String(year + 1).slice(-2)}`;
+  }
+};
+
 export default function TaxDeclaration() {
   const { user } = useAuth();
+
+  const CURRENT_FY = getCurrentFY();
+  const PREVIOUS_FY = (() => {
+    const first = Number(CURRENT_FY.split('-')[0]) - 1;
+    const second = Number(CURRENT_FY.split('-')[1]) - 1;
+    return `${first}-${second.toString().padStart(2, '0')}`;
+  })();
+
   const [declarations, setDeclarations] = useState<TaxDeclaration[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [newDeclaration, setNewDeclaration] = useState({
     section: '',
     category: '',
     amount: '',
-    financialYear: '2024-25',
+    financialYear: CURRENT_FY, // Auto default
   });
 
   useEffect(() => {
-    if (user) {
-      loadDeclarations();
-    }
+    if (user) loadDeclarations();
   }, [user]);
 
   const loadDeclarations = async () => {
@@ -45,11 +67,13 @@ export default function TaxDeclaration() {
         where('userId', '==', user?.uid),
         orderBy('createdAt', 'desc')
       );
+
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as TaxDeclaration[];
+
       setDeclarations(data);
     } catch (error) {
       console.error('Error loading tax declarations:', error);
@@ -66,24 +90,29 @@ export default function TaxDeclaration() {
     }
 
     try {
-      // Fetch employee name
       const employeeDoc = await getDoc(doc(db, 'employees', user?.uid || ''));
-      const employeeName = employeeDoc.exists() ? employeeDoc.data().name : 'Unknown';
+      const employeeName = employeeDoc.exists() ? (employeeDoc.data() as any).name : 'Unknown';
 
       await addDoc(collection(db, 'tax_declarations'), {
         userId: user?.uid,
         employeeId: user?.uid,
-        employeeName: employeeName,
+        employeeName,
         section: newDeclaration.section,
         category: newDeclaration.category,
         amount: parseFloat(newDeclaration.amount),
         financialYear: newDeclaration.financialYear,
         status: 'pending',
         submittedDate: new Date().toISOString(),
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       });
 
-      setNewDeclaration({ section: '', category: '', amount: '', financialYear: '2024-25' });
+      setNewDeclaration({
+        section: '',
+        category: '',
+        amount: '',
+        financialYear: CURRENT_FY,
+      });
+
       toast.success('Tax declaration added successfully');
       loadDeclarations();
     } catch (error) {
@@ -112,30 +141,39 @@ export default function TaxDeclaration() {
         </CardTitle>
         <CardDescription>Declare your tax-saving investments and expenses</CardDescription>
       </CardHeader>
+
       <CardContent>
         <div className="space-y-6">
+          {/* FORM */}
           <Card className="border-dashed">
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Section</Label>
-                  <Select value={newDeclaration.section} onValueChange={(value) => setNewDeclaration({ ...newDeclaration, section: value })}>
+                  <Select
+                    value={newDeclaration.section}
+                    onValueChange={(value) => setNewDeclaration({ ...newDeclaration, section: value })}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select section" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="80C">Section 80C</SelectItem>
-                      <SelectItem value="80D">Section 80D (Medical Insurance)</SelectItem>
-                      <SelectItem value="80E">Section 80E (Education Loan)</SelectItem>
-                      <SelectItem value="80G">Section 80G (Donations)</SelectItem>
+                      <SelectItem value="80D">Section 80D</SelectItem>
+                      <SelectItem value="80E">Section 80E</SelectItem>
+                      <SelectItem value="80G">Section 80G</SelectItem>
                       <SelectItem value="HRA">HRA Exemption</SelectItem>
                       <SelectItem value="LTA">LTA Exemption</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div>
                   <Label>Category</Label>
-                  <Select value={newDeclaration.category} onValueChange={(value) => setNewDeclaration({ ...newDeclaration, category: value })}>
+                  <Select
+                    value={newDeclaration.category}
+                    onValueChange={(value) => setNewDeclaration({ ...newDeclaration, category: value })}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
@@ -151,6 +189,7 @@ export default function TaxDeclaration() {
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div>
                   <Label>Amount (₹)</Label>
                   <Input
@@ -160,26 +199,32 @@ export default function TaxDeclaration() {
                     placeholder="Enter amount"
                   />
                 </div>
+
                 <div>
                   <Label>Financial Year</Label>
-                  <Select value={newDeclaration.financialYear} onValueChange={(value) => setNewDeclaration({ ...newDeclaration, financialYear: value })}>
+                  <Select
+                    value={newDeclaration.financialYear}
+                    onValueChange={(value) => setNewDeclaration({ ...newDeclaration, financialYear: value })}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="2024-25">2024-25</SelectItem>
-                      <SelectItem value="2023-24">2023-24</SelectItem>
+                      <SelectItem value={CURRENT_FY}>{CURRENT_FY}</SelectItem>
+                      <SelectItem value={PREVIOUS_FY}>{PREVIOUS_FY}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <Button onClick={handleAddDeclaration} className="mt-4">
+
+              <Button onClick={handleAddDeclaration} className="mt-4 w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Declaration
               </Button>
             </CardContent>
           </Card>
 
+          {/* LIST */}
           <ScrollArea className="h-[400px]">
             <div className="min-w-[700px]">
               <Table>
