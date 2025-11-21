@@ -2,9 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Toaster as HotToaster } from 'react-hot-toast';
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster as HotToaster } from "react-hot-toast";
+
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AdminSetup from "./pages/AdminSetup";
@@ -15,6 +17,7 @@ import Leave from "./pages/Leave";
 import Salary from "./pages/Salary";
 import Report from "./pages/Report";
 import Settings from "./pages/Settings";
+
 import Employees from "./pages/admin/Employees";
 import EmployeeDetails from "./pages/admin/EmployeeDetails";
 import Departments from "./pages/admin/Departments";
@@ -46,10 +49,15 @@ const App = () => (
         <Toaster />
         <Sonner />
         <HotToaster position="top-right" />
-        <BrowserRouter>
+
+        {/* HASH ROUTER = supports /#/ paths */}
+        <HashRouter>
           <Routes>
+            {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/admin-setup" element={<AdminSetup />} />
+
+            {/* Protected Routes */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
@@ -57,6 +65,8 @@ const App = () => (
             <Route path="/salary" element={<ProtectedRoute><Salary /></ProtectedRoute>} />
             <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+            {/* Admin Routes */}
             <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
             <Route path="/employees/:id" element={<ProtectedRoute><EmployeeDetails /></ProtectedRoute>} />
             <Route path="/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
@@ -72,10 +82,14 @@ const App = () => (
             <Route path="/self-service" element={<ProtectedRoute><SelfService /></ProtectedRoute>} />
             <Route path="/self-service-management" element={<ProtectedRoute><SelfServiceManagement /></ProtectedRoute>} />
             <Route path="/hr-analytics" element={<ProtectedRoute><HRAnalytics /></ProtectedRoute>} />
+
+            {/* Default Route → Redirect to Login */}
             <Route path="/" element={<Navigate to="/login" />} />
+
+            {/* Catch All */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
