@@ -1,6 +1,6 @@
 # HR Management System
 
-A comprehensive web-based HR Management System built with React, TypeScript, and Firebase. This application streamlines employee management, attendance tracking, leave requests, salary slip generation, notifications, and more.
+A comprehensive multi-organization web-based HR Management System built with React, TypeScript, and Firebase. This application streamlines employee management, attendance tracking, leave requests, salary slip generation, notifications, and more across multiple organizations.
 
 ## Features
 
@@ -31,9 +31,17 @@ A comprehensive web-based HR Management System built with React, TypeScript, and
   - Receive private birthday notifications
 - **Notifications**: View system-wide announcements and birthday wishes in notification center
 
+### Super Admin Features
+- **Organization Management**:
+  - Create and manage multiple organizations
+  - Configure organization-specific settings
+  - View all organizations and their employees
+  - Update system-wide branding (logo and name)
+- **Global Access**: Full access to all features across all organizations
+
 ### HR/Admin Features
 - **Employee Management**: 
-  - Add, edit, and delete employee records
+  - Add, edit, and delete employee records within their organization
   - Import employee data from Excel files (.xlsx, .xls)
   - Manage comprehensive employee details (name, email, department, position, salary, gender, contact info)
   - Upload employee profile pictures
@@ -41,12 +49,12 @@ A comprehensive web-based HR Management System built with React, TypeScript, and
   - Block/unblock employee accounts
   - Reset employee passwords (defaults to employee code)
 - **Attendance Management**: 
-  - View all employee attendance records
+  - View all employee attendance records within their organization
   - Approve or reject attendance edit requests
   - Filter by date range and employee
   - Export attendance reports
 - **Leave Approvals**: 
-  - Review pending leave requests from all employees
+  - Review pending leave requests from organization employees
   - Approve or reject leaves with comments
   - View complete leave history
   - Track approval timestamps and approvers
@@ -56,18 +64,18 @@ A comprehensive web-based HR Management System built with React, TypeScript, and
   - Manage deductions (tax, PF, other)
   - Automatic net salary calculation
 - **Department Management**: 
-  - Create and manage departments
+  - Create and manage departments within their organization
   - Assign HODs to departments
 - **Holiday Management**: 
-  - Create and manage company holidays
+  - Create and manage company holidays for their organization
   - Set holiday dates and descriptions
 - **Notification System**:
-  - Send system-wide notifications to all users
+  - Send organization-wide notifications
   - Pre-compose birthday wish templates
   - Manage notification visibility and delivery
-- **System Branding**:
-  - Update system logo and name
-  - Customize application appearance
+- **Organization Branding**:
+  - Update organization logo and name
+  - Customize organization appearance
 - **Dashboard Customization**: Employees can customize sidebar visibility and dashboard widgets
 
 ### HOD Features
@@ -155,36 +163,48 @@ A comprehensive web-based HR Management System built with React, TypeScript, and
 
 ## User Roles & Access Control
 
-The system supports four user roles with specific permissions:
+The system supports five user roles with specific permissions:
 
-1. **Staff** - Regular employees with access to:
+1. **Super Admin** - System administrator with global access to:
+   - Create and manage multiple organizations
+   - Configure system-wide branding (logo and name)
+   - Full access to all features across all organizations
+   - View and manage all employees across organizations
+
+2. **Staff** - Regular employees with access to:
    - Personal dashboard and profile management
    - Attendance marking and edit requests
    - Leave applications
    - Salary slip viewing
    - Birthday wishes and notifications
 
-2. **HR** - Human resources personnel with full administrative access to:
-   - All employee management features
-   - Attendance and leave approvals
+3. **HR** - Human resources personnel with organization-level administrative access to:
+   - Employee management within their organization
+   - Attendance and leave approvals for their organization
    - Salary slip generation
    - Department and holiday management
-   - System-wide notifications
+   - Organization-wide notifications
    - User account management (block/unblock, password reset)
-   - System branding configuration
+   - Organization branding configuration (logo and name)
 
-3. **HOD** - Head of Department with limited administrative access:
+4. **HOD** - Head of Department with limited administrative access:
    - Leave approvals for department employees only
    - View department employee records
    - Cannot manage employees, departments, attendance records, or holidays
 
-4. **Intern** - Temporary employees with access similar to Staff role
+5. **Intern** - Temporary employees with access similar to Staff role
 
 ## Authentication & Security
 
 ### Initial Setup
-1. Create the first admin account through the `/admin-setup` route
-2. HR can then add additional employees through Employee Management or Excel import
+1. Create the first Super Admin account through the `/super-admin-setup` route
+2. Super Admin creates organizations and their HR admins
+3. HR can then add employees through Employee Management or Excel import
+
+### Login Flow
+1. **Organization Selection**: Users first select their organization from the list
+2. **Credentials Entry**: Enter employee code and password
+3. **Organization Branding**: Organization logo and name are displayed after selection
 
 ### Login Credentials
 - **Employee Code**: Minimum 4 digits (can be longer)
@@ -219,35 +239,45 @@ The system implements a comprehensive leave policy with multiple leave types:
 
 ## Usage
 
+### For Super Admin
+1. Log in with Super Admin credentials (no organization selection required)
+2. Create and manage organizations
+3. Configure system-wide branding (logo and name)
+4. View and manage all employees across organizations
+5. Access all features globally
+
 ### For Employees
-1. Log in with your employee code and PAN (initial password)
-2. Complete your profile with comprehensive details
-3. Mark attendance daily and request edits if needed
-4. Submit leave requests and track approvals
-5. View salary slips and download as needed
-6. Send birthday wishes to colleagues
-7. View notifications from HR
-8. Customize your dashboard layout
-9. Check your HOD and Leave Approvers in profile
+1. Select your organization from the list
+2. Log in with your employee code and PAN (initial password)
+3. Complete your profile with comprehensive details
+4. Mark attendance daily and request edits if needed
+5. Submit leave requests and track approvals
+6. View salary slips and download as needed
+7. Send birthday wishes to colleagues
+8. View notifications from HR
+9. Customize your dashboard layout
+10. Check your HOD and Leave Approvers in profile
 
 ### For HR/Admin
-1. Log in with HR credentials
-2. Import or manually add employee records
-3. Manage employee accounts (block/unblock, reset passwords)
-4. Review and approve attendance edits and leave requests
-5. Generate monthly salary slips
-6. Configure departments and assign HODs
-7. Manage company holidays
-8. Send system-wide notifications
-9. Create birthday wish templates
-10. Update system branding
-11. View detailed employee information
+1. Select your organization from the list
+2. Log in with HR credentials
+3. Import or manually add employee records within your organization
+4. Manage employee accounts (block/unblock, reset passwords)
+5. Review and approve attendance edits and leave requests
+6. Generate monthly salary slips
+7. Configure departments and assign HODs
+8. Manage company holidays
+9. Send organization-wide notifications
+10. Create birthday wish templates
+11. Update organization branding (logo and name)
+12. View detailed employee information
 
 ### For HOD
-1. Log in with HOD credentials
-2. Review leave requests for your department
-3. Approve or reject leaves with comments
-4. View department employee records
+1. Select your organization from the list
+2. Log in with HOD credentials
+3. Review leave requests for your department
+4. Approve or reject leaves with comments
+5. View department employee records
 
 ## Project Structure
 
