@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Menu, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Menu, ChevronLeft, ChevronRight, Download, FileText, Shield, DollarSign, Receipt, Home, Briefcase } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -26,6 +27,7 @@ export default function SelfService() {
   });
   const [activeTab, setActiveTab] = useState('payslips');
   const [showScrollButtons, setShowScrollButtons] = useState(false);
+  const tabsListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadSystemSettings();
@@ -33,6 +35,10 @@ export default function SelfService() {
     window.addEventListener('resize', checkScrollButtons);
     return () => window.removeEventListener('resize', checkScrollButtons);
   }, []);
+
+  useEffect(() => {
+    checkScrollButtons();
+  }, [activeTab]);
 
   const loadSystemSettings = async () => {
     try {
@@ -46,40 +52,60 @@ export default function SelfService() {
   };
 
   const checkScrollButtons = () => {
-    const tabsList = document.querySelector('.tabs-list-container');
-    if (tabsList) {
-      setShowScrollButtons(tabsList.scrollWidth > tabsList.clientWidth);
+    if (tabsListRef.current) {
+      const { scrollWidth, clientWidth } = tabsListRef.current;
+      setShowScrollButtons(scrollWidth > clientWidth);
     }
   };
 
   const scrollTabs = (direction: 'left' | 'right') => {
-    const tabsList = document.querySelector('.tabs-list-container');
-    if (tabsList) {
+    if (tabsListRef.current) {
       const scrollAmount = 200;
-      tabsList.scrollBy({
+      tabsListRef.current.scrollBy({
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth'
       });
     }
   };
 
+  const getTabIcon = (tab: string) => {
+    switch (tab) {
+      case 'payslips':
+        return <Download className="h-4 w-4" />;
+      case 'tax':
+        return <Receipt className="h-4 w-4" />;
+      case 'investment':
+        return <DollarSign className="h-4 w-4" />;
+      case 'loans':
+        return <Briefcase className="h-4 w-4" />;
+      case 'itr':
+        return <FileText className="h-4 w-4" />;
+      case 'reimbursements':
+        return <Home className="h-4 w-4" />;
+      case 'policies':
+        return <Shield className="h-4 w-4" />;
+      default:
+        return <FileText className="h-4 w-4" />;
+    }
+  };
+
   const tabLabels = {
-    payslips: 'Payslips',
-    tax: 'Tax',
-    investment: 'Investments',
-    loans: 'Loans',
-    itr: 'ITR',
-    reimbursements: 'Reimbursements',
-    policies: 'Policies'
+    payslips: { full: 'Payslips', short: 'Payslips' },
+    tax: { full: 'Tax Declaration', short: 'Tax' },
+    investment: { full: 'Investment Proofs', short: 'Investments' },
+    loans: { full: 'Loan Applications', short: 'Loans' },
+    itr: { full: 'ITR Assistance', short: 'ITR' },
+    reimbursements: { full: 'Reimbursements', short: 'Claims' },
+    policies: { full: 'Policy Documents', short: 'Policies' }
   };
 
   const mobileTabLabels = {
-    payslips: 'Payslips',
+    payslips: 'Payslip',
     tax: 'Tax',
     investment: 'Invest',
-    loans: 'Loans',
+    loans: 'Loan',
     itr: 'ITR',
-    reimbursements: 'Claims',
+    reimbursements: 'Claim',
     policies: 'Docs'
   };
 
@@ -125,88 +151,169 @@ export default function SelfService() {
           {/* Main Content */}
           <main className="flex-1 overflow-y-auto">
             <div className="container mx-auto p-3 sm:p-4 md:p-6 max-w-7xl">
-              <Card className="w-full">
-                <CardHeader className="pb-3 sm:pb-6">
-                  <CardTitle className="text-xl sm:text-2xl md:text-3xl">
-                    Employee Self-Service Portal
-                  </CardTitle>
-                  <CardDescription className="text-sm sm:text-base">
-                    Manage your payslips, tax declarations, loans, and more
-                  </CardDescription>
+              {/* Quick Stats Bar - Mobile Only */}
+              {isMobile && (
+                <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="text-center">
+                      <div className="font-semibold text-lg">5</div>
+                      <div className="text-muted-foreground">Documents</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold text-lg">2</div>
+                      <div className="text-muted-foreground">Pending</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold text-lg">3</div>
+                      <div className="text-muted-foreground">Approved</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <Card className="w-full shadow-sm border-0 sm:border">
+                <CardHeader className="pb-3 sm:pb-6 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold">
+                        Self-Service Portal
+                      </CardTitle>
+                      <CardDescription className="text-sm sm:text-base mt-2">
+                        Manage your HR documents and requests in one place
+                      </CardDescription>
+                    </div>
+                    {!isMobile && (
+                      <Button variant="outline" size="sm" className="hidden sm:flex">
+                        <Download className="h-4 w-4 mr-2" />
+                        Quick Guide
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Desktop Quick Actions */}
+                  {!isMobile && (
+                    <div className="flex gap-2 pt-2">
+                      <Badge variant="secondary" className="px-3 py-1">
+                        Last Login: Today
+                      </Badge>
+                      <Badge variant="outline" className="px-3 py-1">
+                        3 Pending Actions
+                      </Badge>
+                    </div>
+                  )}
                 </CardHeader>
+
                 <CardContent className="p-0 sm:p-2">
                   <Tabs 
                     value={activeTab} 
                     onValueChange={setActiveTab}
                     className="w-full"
                   >
-                    <div className="relative px-2 sm:px-4">
-                      {showScrollButtons && (
+                    <div className="relative px-2 sm:px-4 md:px-6">
+                      {showScrollButtons && !isMobile && (
                         <>
                           <button
                             onClick={() => scrollTabs('left')}
-                            className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm border rounded-full p-1 shadow-sm hidden sm:flex"
+                            className="absolute left-2 top-1/2 transform -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm border rounded-full p-2 shadow-sm hover:bg-accent transition-colors"
                           >
                             <ChevronLeft className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => scrollTabs('right')}
-                            className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm border rounded-full p-1 shadow-sm hidden sm:flex"
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm border rounded-full p-2 shadow-sm hover:bg-accent transition-colors"
                           >
                             <ChevronRight className="h-4 w-4" />
                           </button>
                         </>
                       )}
-                      <div className="tabs-list-container overflow-x-auto scrollbar-hide">
-                        <TabsList className="w-full inline-flex h-auto p-1 gap-1 min-w-max">
+                      
+                      <div 
+                        ref={tabsListRef}
+                        className="tabs-list-container overflow-x-auto scrollbar-hide scroll-smooth"
+                        onScroll={checkScrollButtons}
+                      >
+                        <TabsList className="w-full inline-flex h-auto p-1 gap-1 bg-muted/50 min-w-max">
                           {Object.entries(tabLabels).map(([value, label]) => (
                             <TabsTrigger
                               key={value}
                               value={value}
                               className={`
-                                flex-1 min-w-0 px-2 sm:px-3 py-2 text-xs sm:text-sm
-                                whitespace-nowrap transition-all duration-200
-                                ${isMobile ? 'min-w-[70px]' : 'min-w-[100px]'}
+                                relative flex items-center gap-2 px-3 py-2.5 text-xs sm:text-sm font-medium
+                                whitespace-nowrap transition-all duration-200 ease-in-out
+                                hover:bg-background/50
+                                ${isMobile ? 'flex-col min-w-[70px] h-16' : 'min-w-[120px] h-11'}
+                                data-[state=active]:bg-background data-[state=active]:shadow-sm
+                                data-[state=active]:border data-[state=active]:border-border
                               `}
                             >
-                              <span className="hidden sm:inline">
-                                {label}
+                              <div className={`${isMobile ? 'text-lg' : ''}`}>
+                                {getTabIcon(value)}
+                              </div>
+                              <span className={`font-medium ${isMobile ? 'text-xs mt-1' : ''}`}>
+                                {isMobile 
+                                  ? mobileTabLabels[value as keyof typeof mobileTabLabels]
+                                  : label.short
+                                }
                               </span>
-                              <span className="sm:hidden text-xs font-medium">
-                                {mobileTabLabels[value as keyof typeof mobileTabLabels]}
-                              </span>
+                              
+                              {/* Active indicator */}
+                              <div 
+                                className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 
+                                  w-1 h-1 bg-primary rounded-full transition-all duration-200
+                                  ${activeTab === value ? 'opacity-100' : 'opacity-0'}
+                                  ${isMobile ? 'w-6' : 'w-8'}
+                                `}
+                              />
                             </TabsTrigger>
                           ))}
                         </TabsList>
                       </div>
                     </div>
 
-                    <div className="px-3 sm:px-4 py-4 sm:py-6">
-                      <TabsContent value="payslips" className="mt-0">
+                    {/* Tab Content Area */}
+                    <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 min-h-[500px]">
+                      {/* Active Tab Header */}
+                      <div className="mb-4 sm:mb-6 pb-3 border-b">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-primary/10 rounded-lg">
+                            {getTabIcon(activeTab)}
+                          </div>
+                          <div>
+                            <h2 className="text-lg sm:text-xl font-semibold">
+                              {tabLabels[activeTab as keyof typeof tabLabels].full}
+                            </h2>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Manage your {tabLabels[activeTab as keyof typeof tabLabels].full.toLowerCase()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <TabsContent value="payslips" className="mt-0 animate-in fade-in duration-300">
                         <PayslipDownloads />
                       </TabsContent>
 
-                      <TabsContent value="tax" className="mt-0">
+                      <TabsContent value="tax" className="mt-0 animate-in fade-in duration-300">
                         <TaxDeclaration />
                       </TabsContent>
 
-                      <TabsContent value="investment" className="mt-0">
+                      <TabsContent value="investment" className="mt-0 animate-in fade-in duration-300">
                         <InvestmentProofs />
                       </TabsContent>
 
-                      <TabsContent value="loans" className="mt-0">
+                      <TabsContent value="loans" className="mt-0 animate-in fade-in duration-300">
                         <LoanApplications />
                       </TabsContent>
 
-                      <TabsContent value="itr" className="mt-0">
+                      <TabsContent value="itr" className="mt-0 animate-in fade-in duration-300">
                         <ITRAssistance />
                       </TabsContent>
 
-                      <TabsContent value="reimbursements" className="mt-0">
+                      <TabsContent value="reimbursements" className="mt-0 animate-in fade-in duration-300">
                         <Reimbursements />
                       </TabsContent>
 
-                      <TabsContent value="policies" className="mt-0">
+                      <TabsContent value="policies" className="mt-0 animate-in fade-in duration-300">
                         <PolicyDocuments />
                       </TabsContent>
                     </div>
@@ -214,13 +321,37 @@ export default function SelfService() {
                 </CardContent>
               </Card>
 
+              {/* Mobile Quick Actions */}
+              {isMobile && (
+                <div className="mt-4 p-4 bg-card border rounded-lg shadow-sm">
+                  <h3 className="font-semibold text-sm mb-3">Quick Actions</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" size="sm" className="text-xs h-10">
+                      <Download className="h-3 w-3 mr-1" />
+                      Download All
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-xs h-10">
+                      <FileText className="h-3 w-3 mr-1" />
+                      View History
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Mobile Navigation Helper */}
               {isMobile && (
-                <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-10 bg-card border rounded-full shadow-lg px-4 py-2">
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <span className="font-medium">{tabLabels[activeTab as keyof typeof tabLabels]}</span>
-                    <span>•</span>
-                    <span>Swipe to navigate</span>
+                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-10">
+                  <div className="bg-card/95 backdrop-blur-sm border rounded-full shadow-lg px-4 py-3 flex items-center gap-3 text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1 bg-primary/10 rounded">
+                        {getTabIcon(activeTab)}
+                      </div>
+                      <span className="font-medium">
+                        {tabLabels[activeTab as keyof typeof tabLabels].full}
+                      </span>
+                    </div>
+                    <div className="h-4 w-px bg-border" />
+                    <span className="text-muted-foreground">Swipe to navigate</span>
                   </div>
                 </div>
               )}
@@ -239,5 +370,21 @@ export default function SelfService() {
         }
       `}</style>
     </SidebarProvider>
+  );
+}
+
+// Badge component for quick actions
+function Badge({ variant = 'secondary', className = '', children, ...props }) {
+  const baseStyles = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2';
+  
+  const variants = {
+    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+    outline: 'border border-border bg-background hover:bg-accent hover:text-accent-foreground'
+  };
+
+  return (
+    <div className={`${baseStyles} ${variants[variant]} ${className}`} {...props}>
+      {children}
+    </div>
   );
 }
