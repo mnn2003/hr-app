@@ -338,23 +338,6 @@ export default function SelfService() {
                 </div>
               )}
 
-              {/* Mobile Navigation Helper */}
-              {isMobile && (
-                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-10">
-                  <div className="bg-card/95 backdrop-blur-sm border rounded-full shadow-lg px-4 py-3 flex items-center gap-3 text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1 bg-primary/10 rounded">
-                        {getTabIcon(activeTab)}
-                      </div>
-                      <span className="font-medium">
-                        {tabLabels[activeTab as keyof typeof tabLabels].full}
-                      </span>
-                    </div>
-                    <div className="h-4 w-px bg-border" />
-                    <span className="text-muted-foreground">Swipe to navigate</span>
-                  </div>
-                </div>
-              )}
             </div>
           </main>
         </div>
