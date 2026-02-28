@@ -161,6 +161,8 @@ const EmployeeDirectoryContent = () => {
                   <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span className="truncate">{employee.email}</span>
                 </div>
+
+<span> {employee.cont}
                 
                 {employee.phone && (
                   <div className="flex items-center gap-2 text-sm">
